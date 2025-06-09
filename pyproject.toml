@@ -1,0 +1,11 @@
+[project]
+name = "ai-search-mcp"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "aiohttp>=3.12.11",
+    "httpx>=0.28.1",
+    "mcp[cli]>=1.9.3",
+]
