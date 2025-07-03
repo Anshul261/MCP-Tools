@@ -7,59 +7,55 @@ Includes tools for different search strategies, prompts for efficient searching,
 and robust error handling with retry logic.
 """
 
-# Add this at the very top to catch import errors
-print("🔍 Starting server import process...")
+import sys
+import os
+
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 try:
     import asyncio
-    print("✅ asyncio imported")
-    
     import json
     import logging
-    import os
     from typing import Any, Dict, List, Optional, Sequence
     from urllib.parse import quote_plus
-    print("✅ Standard libraries imported")
-    
     import aiohttp
-    print("✅ aiohttp imported")
-    
     from datetime import datetime, timedelta
-    print("✅ datetime imported")
 
     # Load environment variables from .env file
     from dotenv import load_dotenv
-    print("✅ dotenv imported")
     
-    load_dotenv()
-    print("✅ .env file loaded")
+    # Load .env from the script's directory
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+    env_path = os.path.join(script_dir, '.env')
+    load_dotenv(env_path)
 
     from mcp.server.fastmcp import FastMCP
-    print("✅ FastMCP imported")
     
 except ImportError as e:
-    print(f"❌ Import error: {e}")
-    exit(1)
+    print(f"❌ Import error: {e}", file=sys.stderr)
+    print("Make sure to install required packages: pip install fastmcp aiohttp python-dotenv", file=sys.stderr)
+    sys.exit(1)
 except Exception as e:
-    print(f"❌ Unexpected error during imports: {e}")
-    exit(1)
+    print(f"❌ Unexpected error during imports: {e}", file=sys.stderr)
+    sys.exit(1)
 
-print("🎉 All imports successful!")
-
-# Configure logging
-logging.basicConfig(level=logging.INFO)
+# Configure logging to stderr (important for MCP)
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    stream=sys.stderr  # Use stderr for logging in MCP
+)
 logger = logging.getLogger("brave-search-mcp")
 
 # Configuration
 BRAVE_API_KEY = os.getenv("BRAVE_API_KEY")
 BRAVE_BASE_URL = "https://api.search.brave.com/res/v1"
 
-# Debug: Print API key status (remove this after debugging)
-print(f"DEBUG: BRAVE_API_KEY is {'SET' if BRAVE_API_KEY else 'NOT SET'}")
-print(f"DEBUG: API key starts with: {BRAVE_API_KEY[:8] + '...' if BRAVE_API_KEY else 'None'}")
-
+# Log to stderr for debugging (Claude Code will capture this)
 if not BRAVE_API_KEY:
-    logger.warning("BRAVE_API_KEY environment variable not set")
+    logger.error("BRAVE_API_KEY environment variable not set. Please check your .env file.")
+else:
+    logger.info("BRAVE_API_KEY loaded successfully")
 
 # Initialize the FastMCP server
 mcp = FastMCP("Brave Search API Server")
@@ -896,5 +892,16 @@ web_search(
     
     return prompt_content
 
+def main():
+    """Main entry point for the server"""
+    try:
+        logger.info("Starting Brave Search MCP Server...")
+        mcp.run()
+    except KeyboardInterrupt:
+        logger.info("Server stopped by user")
+    except Exception as e:
+        logger.error(f"Server error: {e}")
+        sys.exit(1)
+
 if __name__ == "__main__":
-    mcp.run()
+    main()
