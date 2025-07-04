@@ -419,10 +419,10 @@ class EnhancedResearchAgent:
                 # Proper MCP cleanup - check if it has async exit method
                 if hasattr(self.mcp_tools, '__aexit__'):
                     await self.mcp_tools.__aexit__(None, None, None)
-                elif hasattr(self.mcp_tools, 'close'):
-                    await self.mcp_tools.close()
-                elif hasattr(self.mcp_tools, 'cleanup'):
-                    await self.mcp_tools.cleanup()
+                # elif hasattr(self.mcp_tools, 'close'):
+                #     await self.mcp_tools.close()
+                # elif hasattr(self.mcp_tools, 'cleanup'):
+                #     await self.mcp_tools.cleanup()
             console.print("🧹 [dim]Resources cleaned up[/dim]")
         except Exception as e:
             console.print(f"⚠️ [yellow]Cleanup warning: {e}[/yellow]")
