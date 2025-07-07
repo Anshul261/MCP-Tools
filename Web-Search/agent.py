@@ -5,6 +5,7 @@ from typing import Optional, List, Dict, Any
 from dotenv import load_dotenv
 from agno.agent import Agent
 from agno.models.azure.openai_chat import AzureOpenAI
+from agno.models.ollama import Ollama
 from agno.tools.mcp import MCPTools
 from agno.storage.sqlite import SqliteStorage
 from rich import print
@@ -44,13 +45,14 @@ class EnhancedResearchAgent:
         console.print("🚀 [bold blue]Initializing Enhanced Research Agent[/bold blue]")
         
         # Setup Azure OpenAI model
-        self.azure_model = AzureOpenAI(
-            api_key=os.getenv("AZURE_OPENAI_API_KEY"),
-            azure_endpoint=os.getenv("AZURE_OPENAI_ENDPOINT"),
-            api_version=os.getenv("OPENAI_API_VERSION"),
-            azure_deployment=os.getenv("AZURE_OPENAI_DEPLOYMENT_NAME"),
-            max_tokens=4000,  # Increased for detailed responses
-            temperature=0.1,  # Low temperature for consistent research
+        #api_key=os.getenv("AZURE_OPENAI_API_KEY"),
+        # azure_endpoint=os.getenv("AZURE_OPENAI_ENDPOINT"),
+        # api_version=os.getenv("OPENAI_API_VERSION"),
+        # azure_deployment=os.getenv("AZURE_OPENAI_DEPLOYMENT_NAME"),
+        # max_tokens=4000,  # Increased for detailed responses
+        # temperature=0.1,  # Low temperature for consistent research
+        self.azure_model = Ollama(
+            id="yasserrmd/jan-nano-4b:latest", provider="Ollama",
         )
         
         # Setup storage with proper configuration
@@ -172,20 +174,20 @@ class EnhancedResearchAgent:
         # Create rich status display
         status_panel = Panel.fit(
             f"""
-[bold blue]Enhanced Research Agent Status[/bold blue]
+            [bold blue]Enhanced Research Agent Status[/bold blue]
 
-🆔 User ID: [yellow]{self.user_id}[/yellow]
-📍 Session: [yellow]{self.agent.session_id if self.agent else 'Not Created'}[/yellow]
-🧠 Memory: [green]Active (Built-in Agno)[/green]
-📊 Context Depth: [cyan]25 messages[/cyan]
-🔧 Tools: [green]{'Connected' if self.mcp_tools else 'Disconnected'}[/green]
-🗃️ Storage: [green]{'Active' if self.storage else 'Disabled'}[/green]
+            🆔 User ID: [yellow]{self.user_id}[/yellow]
+            📍 Session: [yellow]{self.agent.session_id if self.agent else 'Not Created'}[/yellow]
+            🧠 Memory: [green]Active (Built-in Agno)[/green]
+            📊 Context Depth: [cyan]25 messages[/cyan]
+            🔧 Tools: [green]{'Connected' if self.mcp_tools else 'Disconnected'}[/green]
+            🗃️ Storage: [green]{'Active' if self.storage else 'Disabled'}[/green]
 
-[bold green]Demo Metrics:[/bold green]
-• Queries Processed: {self.metrics['queries_processed']}
-• Successful Responses: {self.metrics['successful_responses']}
-• Sessions Created: {self.metrics['sessions_created']}
-• Research Topics: {len(self.metrics['research_topics'])}
+            [bold green]Demo Metrics:[/bold green]
+            • Queries Processed: {self.metrics['queries_processed']}
+            • Successful Responses: {self.metrics['successful_responses']}
+            • Sessions Created: {self.metrics['sessions_created']}
+            • Research Topics: {len(self.metrics['research_topics'])}
             """,
             title="🎯 Agent Dashboard",
             border_style="blue"
