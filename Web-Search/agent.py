@@ -354,23 +354,23 @@ class EnhancedResearchAgent:
         
         metrics_panel = Panel.fit(
             f"""
-[bold green]Research Agent Analytics[/bold green]
+            [bold green]Research Agent Analytics[/bold green]
 
-📊 [bold]Usage Statistics:[/bold]
-• Total Queries: [cyan]{self.metrics['queries_processed']}[/cyan]
-• Successful Responses: [cyan]{self.metrics['successful_responses']}[/cyan]
-• Success Rate: [cyan]{success_rate:.1f}%[/cyan]
-• Sessions Created: [cyan]{self.metrics['sessions_created']}[/cyan]
+            📊 [bold]Usage Statistics:[/bold]
+            • Total Queries: [cyan]{self.metrics['queries_processed']}[/cyan]
+            • Successful Responses: [cyan]{self.metrics['successful_responses']}[/cyan]
+            • Success Rate: [cyan]{success_rate:.1f}%[/cyan]
+            • Sessions Created: [cyan]{self.metrics['sessions_created']}[/cyan]
 
-🧠 [bold]Research Coverage:[/bold]
-• Unique Topics: [cyan]{len(self.metrics['research_topics'])}[/cyan]
-• Topics: [yellow]{', '.join(list(self.metrics['research_topics'])[:5]) if self.metrics['research_topics'] else 'None yet'}[/yellow]
+            🧠 [bold]Research Coverage:[/bold]
+            • Unique Topics: [cyan]{len(self.metrics['research_topics'])}[/cyan]
+            • Topics: [yellow]{', '.join(list(self.metrics['research_topics'])[:5]) if self.metrics['research_topics'] else 'None yet'}[/yellow]
 
-⚡ [bold]Agent Performance:[/bold]
-• Memory System: [green]Agno Built-in ✓[/green]
-• MCP Integration: [green]Active ✓[/green]
-• Session Persistence: [green]SQLite Storage ✓[/green]
-• Multi-tool Support: [green]Active ✓[/green]
+            ⚡ [bold]Agent Performance:[/bold]
+            • Memory System: [green]Agno Built-in ✓[/green]
+            • MCP Integration: [green]Active ✓[/green]
+            • Session Persistence: [green]SQLite Storage ✓[/green]
+            • Multi-tool Support: [green]Active ✓[/green]
             """,
             title="📈 Performance Dashboard",
             border_style="green"
@@ -381,35 +381,35 @@ class EnhancedResearchAgent:
         """Display help information"""
         help_panel = Panel.fit(
             """
-[bold blue]Enhanced Research Agent - Commands[/bold blue]
+        [bold blue]Enhanced Research Agent - Commands[/bold blue]
 
-[bold yellow]Special Commands:[/bold yellow]
-• [cyan]demo[/cyan] - Run capability demonstration
-• [cyan]status[/cyan] - Show agent status and context
-• [cyan]metrics[/cyan] - Display usage analytics
-• [cyan]help[/cyan] - Show this help message
-• [cyan]quit[/cyan] - Exit the application
+        [bold yellow]Special Commands:[/bold yellow]
+        • [cyan]demo[/cyan] - Run capability demonstration
+        • [cyan]status[/cyan] - Show agent status and context
+        • [cyan]metrics[/cyan] - Display usage analytics
+        • [cyan]help[/cyan] - Show this help message
+        • [cyan]quit[/cyan] - Exit the application
 
-[bold yellow]Research Capabilities:[/bold yellow]
-• Persistent memory across sessions (Agno built-in)
-• Multi-strategy search and research via MCP tools
-• Source verification and cross-referencing
-• Proactive insights and suggestions
-• Contextual conversation building
+        [bold yellow]Research Capabilities:[/bold yellow]
+        • Persistent memory across sessions (Agno built-in)
+        • Multi-strategy search and research via MCP tools
+        • Source verification and cross-referencing
+        • Proactive insights and suggestions
+        • Contextual conversation building
 
-[bold yellow]Example Queries:[/bold yellow]
-• "Research the latest AI developments in 2025"
-• "What did we discuss about [topic] last time?"
-• "Compare different approaches to [problem]"
-• "What should I investigate next about [topic]?"
+        [bold yellow]Example Queries:[/bold yellow]
+        • "Research the latest AI developments in 2025"
+        • "What did we discuss about [topic] last time?"
+        • "Compare different approaches to [problem]"
+        • "What should I investigate next about [topic]?"
 
-[bold yellow]Agent Features:[/bold yellow]
-• Built on official Agno framework
-• Leverages Agno's memory management
-• MCP tool integration for search capabilities
-• SQLite storage for session persistence
+        [bold yellow]Agent Features:[/bold yellow]
+        • Built on official Agno framework
+        • Leverages Agno's memory management
+        • MCP tool integration for search capabilities
+        • SQLite storage for session persistence
             """,
-            title="🆘 Help & Commands",
+            title="Help & Commands",
             border_style="yellow"
         )
         console.print(help_panel)
@@ -435,20 +435,20 @@ async def main():
     # Enhanced startup display
     console.print(Panel.fit(
         """
-[bold blue]🚀 Enhanced Agno Research Agent v2.0[/bold blue]
+        [bold blue]🚀 Enhanced Agno Research Agent v2.0[/bold blue]
 
-[green]✨ Production-Ready Features:[/green]
-• Built on official Agno framework
-• Leverages Agno's built-in memory management  
-• Advanced MCP tool integration
-• Comprehensive session persistence
-• Real-time metrics and monitoring
-• Interactive demo capabilities
-• Professional customer showcase ready
+        [green]✨ Production-Ready Features:[/green]
+        • Built on official Agno framework
+        • Leverages Agno's built-in memory management  
+        • Advanced MCP tool integration
+        • Comprehensive session persistence
+        • Real-time metrics and monitoring
+        • Interactive demo capabilities
+        • Professional customer showcase ready
 
-[yellow]🎯 Perfect for demonstrating enterprise AI capabilities![/yellow]
+        [yellow]🎯 Perfect for demonstrating enterprise AI capabilities![/yellow]
 
-[dim]Following official Agno documentation and best practices[/dim]
+        [dim]Following official Agno documentation and best practices[/dim]
         """,
         title="🤖 AI Research Assistant",
         border_style="blue"
