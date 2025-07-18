@@ -1,12 +1,3 @@
-#!/usr/bin/env python3
-"""
-Brave Search MCP Server
-
-An MCP server that provides comprehensive search capabilities using the Brave Search API.
-Includes tools for different search strategies, prompts for efficient searching, 
-and robust error handling with retry logic.
-"""
-
 import sys
 import os
 
