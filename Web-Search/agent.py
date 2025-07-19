@@ -44,15 +44,26 @@ class EnhancedResearchAgent:
         """Initialize the agent with production-ready configuration"""
         console.print("🚀 [bold blue]Initializing Enhanced Research Agent[/bold blue]")
         
-        # Setup Azure OpenAI model
+        # Setup Azure OpenAI gpt4.1 model
         #api_key=os.getenv("AZURE_OPENAI_API_KEY"),
         # azure_endpoint=os.getenv("AZURE_OPENAI_ENDPOINT"),
         # api_version=os.getenv("OPENAI_API_VERSION"),
         # azure_deployment=os.getenv("AZURE_OPENAI_DEPLOYMENT_NAME"),
         # max_tokens=4000,  # Increased for detailed responses
         # temperature=0.1,  # Low temperature for consistent research
-        self.azure_model = Ollama(
-            id="yasserrmd/jan-nano-4b:latest", provider="Ollama",
+
+        # ollama model
+        # Ollama(
+        #     id="yasserrmd/jan-nano-4b:latest", provider="Ollama",
+        # )
+
+        # o3 mini model
+        self.azure_model = AzureOpenAI(
+            api_key=os.getenv("AZURE_OPENAI_API_KEY_o3"),
+            azure_endpoint=os.getenv("AZURE_OPENAI_ENDPOINT_o3"),
+            api_version=os.getenv("OPENAI_API_VERSION"),
+            azure_deployment=os.getenv("AZURE_OPENAI_DEPLOYMENT_NAME_o3"),
+
         )
         
         # Setup storage with proper configuration
@@ -267,7 +278,7 @@ class EnhancedResearchAgent:
         try:
             # Use Agno's built-in print_response method (most common pattern)
             if self.agent:
-                await self.agent.aprint_response(query, stream=True)
+                await self.agent.aprint_response(query, stream=True,show_full_reasoning=True,stream_intermediate_steps=True,)
                 self.metrics["successful_responses"] += 1
             else:
                 console.print("❌ [red]Agent not initialized[/red]")
