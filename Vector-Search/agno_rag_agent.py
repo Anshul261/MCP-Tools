@@ -203,7 +203,7 @@ def add_documents(file_or_dir_path: str, src_dir: Path, converted_dir: Path, kb:
 
 def interactive_session():
     """Run an interactive Q&A session"""
-    print("\n🤖 RAG Agent Interactive Session")
+    print("\n RAG Agent Interactive Session")
     print("Available commands:")
     print("  - Ask any question (e.g., 'What is machine learning?')")
     print("  - 'add <path>' - Add documents from file or directory")
@@ -213,9 +213,9 @@ def interactive_session():
     # Create agent
     try:
         agent, src_dir, converted_dir, kb = create_rag_agent()
-        print("✅ Agent initialized successfully!")
+        print(" Agent initialized successfully!")
     except Exception as e:
-        print(f"❌ Failed to initialize agent: {e}")
+        print(f" Failed to initialize agent: {e}")
         return
     
     while True:
@@ -227,7 +227,7 @@ def interactive_session():
                 continue
                 
             if user_input.lower() in ['quit', 'exit', 'q']:
-                print("Goodbye! 👋")
+                print("Goodbye!")
                 break
             
             if user_input.lower().startswith('add '):
@@ -240,7 +240,7 @@ def interactive_session():
             
             # Check if the input looks like a shell command by mistake
             if user_input.startswith(('ls', 'cd', 'pwd', 'mkdir', 'rm', 'cp', 'mv')):
-                print("⚠️  This looks like a shell command. I'm an AI assistant - please ask me a question instead!")
+                print("This looks like a shell command. I'm an AI assistant - please ask me a question instead!")
                 print("Example: 'What is machine learning?' or 'Tell me about Python programming'")
                 continue
             
@@ -253,7 +253,7 @@ def interactive_session():
                 print("Please try rephrasing your question.")
             
         except KeyboardInterrupt:
-            print("\n\nGoodbye! 👋")
+            print("\n\nGoodbye!")
             break
         except Exception as e:
             print(f"\nError: {e}")
@@ -262,7 +262,7 @@ def interactive_session():
 
 def main():
     """Main function"""
-    print("🚀 RAG Agent with Agno Framework")
+    print("RAG Agent with Agno Framework")
     print("=" * 40)
     
     # Check configuration
@@ -275,23 +275,23 @@ def main():
     
     missing_vars = [var for var in required_vars if not os.getenv(var)]
     if missing_vars:
-        print(f"❌ Missing required environment variables: {missing_vars}")
+        print(f" Missing required environment variables: {missing_vars}")
         print("Please check your .env file")
         return
     
     # Show configuration
-    print(f"✅ Azure OpenAI Endpoint: {os.getenv('AZURE_OPENAI_ENDPOINT')}")
-    print(f"✅ Deployment: {os.getenv('AZURE_OPENAI_DEPLOYMENT_NAME')}")
-    print(f"✅ Database: {os.getenv('DB_HOST')}:{os.getenv('DB_PORT')}/{os.getenv('DB_NAME')}")
-    print(f"✅ Web Search: {'Enabled' if os.getenv('BRAVE_API_KEY') else 'Disabled'}")
+    print(f"Azure OpenAI Endpoint: {os.getenv('AZURE_OPENAI_ENDPOINT')}")
+    print(f"Deployment: {os.getenv('AZURE_OPENAI_DEPLOYMENT_NAME')}")
+    print(f"Database: {os.getenv('DB_HOST')}:{os.getenv('DB_PORT')}/{os.getenv('DB_NAME')}")
+    print(f"Web Search: {'Enabled' if os.getenv('BRAVE_API_KEY') else 'Disabled'}")
     
     # Check documents
     converted_dir = Path("converted_docs")
     if converted_dir.exists() and any(converted_dir.iterdir()):
         doc_count = len(list(converted_dir.iterdir()))
-        print(f"✅ Documents: {doc_count} files in knowledge base")
+        print(f" Documents: {doc_count} files in knowledge base")
     else:
-        print("⚠️  No documents found. Add some documents using 'add <path>' command")
+        print(" No documents found. Add some documents using 'add <path>' command")
     
     print("\n" + "="*40)
     
