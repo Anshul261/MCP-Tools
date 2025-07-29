@@ -75,18 +75,18 @@ async def interactive_session():
                     if "error" in result:
                         print(f"❌ Error: {result['error']}")
                     else:
-                        # Display results from agents
-                        responses = result.get('responses', {})
-                        
-                        for agent_type, response in responses.items():
-                            if agent_type == 'document' and response:
-                                print(f"\n📚 Document findings:\n{response}")
-                            elif agent_type == 'web' and response:
-                                print(f"\n🌐 Web research:\n{response}")
-                        
-                        # Display synthesis if available
-                        if 'synthesis' in result:
-                            print(f"\n🔗 Coordinated response:\n{result['synthesis']}")
+                        # Show only the final coordinated response
+                        if 'synthesis' in result and result['synthesis']:
+                            print(result['synthesis'])
+                        else:
+                            # Fallback: show the most relevant response
+                            responses = result.get('responses', {})
+                            if 'document' in responses and responses['document']:
+                                print(responses['document'])
+                            elif 'web' in responses and responses['web']:
+                                print(responses['web'])
+                            else:
+                                print("No response generated")
                 
                 except Exception as e:
                     print(f"❌ Error: {e}")

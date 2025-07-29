@@ -19,8 +19,9 @@ class WebAgent(BaseAgent):
         """Initialize Web Research Agent with existing MCP server"""
         
         # Setup MCP tools pointing to existing server
-        server_path = str(Path(__file__).parent.parent / "Web-Search" / "server.py")
-        self.mcp_tools = self._setup_mcp_tools(server_path)
+        server_dir = str(Path(__file__).parent.parent / "Web-Search")
+        server_path = str(Path(server_dir) / "server.py")
+        self.mcp_tools = self._setup_mcp_tools(server_path, server_dir)
         
         # Web agent specific instructions
         instructions = [
@@ -43,15 +44,17 @@ class WebAgent(BaseAgent):
             **kwargs
         )
     
-    def _setup_mcp_tools(self, server_path: str) -> Optional[MCPTools]:
+    def _setup_mcp_tools(self, server_path: str, server_dir: str) -> Optional[MCPTools]:
         """Setup connection to existing MCP server"""
         try:
             if not os.path.exists(server_path):
                 print(f"⚠️  MCP server not found at {server_path}")
                 return None
             
-            mcp_tools = MCPTools(command=f"python {os.path.abspath(server_path)}")
-            print(f"🔧 Web Agent connected to existing MCP server: {server_path}")
+            # Use absolute path - this should work regardless of working directory
+            mcp_command = f"python {os.path.abspath(server_path)}"
+            mcp_tools = MCPTools(command=mcp_command)
+            print(f"🔧 Web Agent connected to existing MCP server: {mcp_command}")
             return mcp_tools
             
         except Exception as e:
@@ -102,29 +105,28 @@ class WebAgent(BaseAgent):
             enhanced_query = query
         
         try:
-            # Use async MCP tools
-            async with self.mcp_tools as active_tools:
-                # Create temporary agent instance with active MCP tools
-                temp_agent = Agent(
-                    name=self.agent.name,
+            # Use async MCP tools with proper context manager pattern from working example
+            async with self.mcp_tools:
+                # Create agent with MCP tools similar to working example
+                web_agent = Agent(
+                    name="Web Research Specialist",
                     model=self.agent.model,
-                    tools=[active_tools],
+                    tools=[self.mcp_tools],
                     instructions=self.agent.instructions,
                     storage=self.agent.storage,
-                    knowledge=self.agent.knowledge,
                     add_history_to_messages=True,
                     markdown=True,
-                    show_tool_calls=True,
+                    show_tool_calls=False,  # Reduce noise
                 )
                 
-                # Get response using async method
-                response = await temp_agent.arun(enhanced_query)
+                # Use arun method to get response object
+                response = await web_agent.arun(enhanced_query)
                 return response.content if hasattr(response, 'content') else str(response)
                 
         except Exception as e:
             print(f"⚠️  MCP tools error: {e}")
-            # Fallback to base processing
-            return self.process_query(query, context)
+            # Fallback to base processing without MCP tools
+            return await super().aprocess_query(query, context)
     
     def get_mcp_tools_status(self) -> Dict[str, Any]:
         """Check MCP tools availability"""

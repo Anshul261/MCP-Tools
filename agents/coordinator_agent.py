@@ -74,13 +74,15 @@ class CoordinatorAgent(BaseAgent):
         
         # Keywords for different query types
         document_keywords = [
-            "policy", "internal", "document", "file", "report", "manual",
-            "procedure", "guideline", "specification", "contract", "agreement"
+            "leave policy", "policy", "internal", "document", "file", "report", "manual",
+            "procedure", "guideline", "specification", "contract", "agreement",
+            "company", "ethica", "bank", "employee", "hr", "benefits", "salary"
         ]
         
         web_keywords = [
-            "latest", "recent", "current", "news", "today", "2024", "2025",
-            "update", "breaking", "trend", "happening", "new"
+            "model context protocol", "mcp", "latest", "recent", "current", "news", 
+            "today", "2024", "2025", "update", "breaking", "trend", "happening", "new",
+            "technology", "ai", "software", "general", "what is", "explain"
         ]
         
         fact_check_keywords = [
@@ -191,30 +193,29 @@ class CoordinatorAgent(BaseAgent):
         return response_data
     
     async def _route_document_primary(self, query: str, response_data: Dict) -> Dict:
-        """Route primarily to document agent"""
+        """Route ONLY to document agent - for company-specific queries"""
         if self.document_agent:
             response_data["agents_used"].append("document_agent")
-            response_data["responses"]["document"] = await self.document_agent.aprocess_query(query)
-        
-        # Add web context if document response seems incomplete
-        if self._needs_web_supplement(response_data.get("responses", {}).get("document", "")):
-            if self.web_agent:
-                response_data["agents_used"].append("web_agent")
-                context = {"document_response": response_data["responses"]["document"]}
-                response_data["responses"]["web"] = await self.web_agent.aprocess_query(query, context)
+            doc_response = await self.document_agent.aprocess_query(query)
+            response_data["responses"]["document"] = doc_response
+            # For document-primary, the synthesis IS the document response
+            response_data["synthesis"] = doc_response
         
         return response_data
     
     async def _route_web_primary(self, query: str, response_data: Dict) -> Dict:
-        """Route primarily to web agent"""
+        """Route ONLY to web agent - for general/current queries"""
         if self.web_agent:
             response_data["agents_used"].append("web_agent")
-            response_data["responses"]["web"] = await self.web_agent.aprocess_query(query)
+            web_response = await self.web_agent.aprocess_query(query)
+            response_data["responses"]["web"] = web_response
+            # For web-primary, the synthesis IS the web response
+            response_data["synthesis"] = web_response
         
         return response_data
     
     async def _route_both_parallel(self, query: str, response_data: Dict) -> Dict:
-        """Route to both agents in parallel"""
+        """Route to both agents in parallel and synthesize - for comprehensive tasks"""
         import asyncio
         
         tasks = []
@@ -235,6 +236,27 @@ class CoordinatorAgent(BaseAgent):
                     response_data["responses"][agent_type] = f"Error: {result}"
                 else:
                     response_data["responses"][agent_type] = result
+            
+            # Synthesize the responses into one unified answer
+            doc_response = response_data["responses"].get("document", "")
+            web_response = response_data["responses"].get("web", "")
+            
+            if doc_response and web_response:
+                synthesis = f"""## Comprehensive Response
+
+**Internal Knowledge:**
+{doc_response}
+
+**External Research:**
+{web_response}
+
+**Synthesis:**
+Combining internal documentation with current external information to provide a complete answer based on both established procedures and current best practices."""
+                response_data["synthesis"] = synthesis
+            elif doc_response:
+                response_data["synthesis"] = doc_response
+            elif web_response:
+                response_data["synthesis"] = web_response
         
         return response_data
     
