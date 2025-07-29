@@ -8,6 +8,7 @@ from typing import Optional, Dict, Any
 from pathlib import Path
 
 from agno.tools.mcp import MCPTools
+from agno.agent import Agent
 
 from .base_agent import BaseAgent
 
@@ -18,10 +19,11 @@ class WebAgent(BaseAgent):
     def __init__(self, **kwargs):
         """Initialize Web Research Agent with existing MCP server"""
         
-        # Setup MCP tools pointing to existing server
-        server_dir = str(Path(__file__).parent.parent / "Web-Search")
-        server_path = str(Path(server_dir) / "server.py")
-        self.mcp_tools = self._setup_mcp_tools(server_path, server_dir)
+        # Store server path for later async setup
+        self.server_dir = str(Path(__file__).parent.parent / "Web-Search")
+        self.server_path = str(Path(self.server_dir) / "server.py")
+        self.mcp_tools = None  # Will be initialized asynchronously
+        self.web_agent_with_mcp = None  # MCP-enabled agent created once
         
         # Web agent specific instructions
         instructions = [
@@ -39,27 +41,52 @@ class WebAgent(BaseAgent):
             name="Web Research Agent",
             agent_id="web_agent",
             instructions=instructions,
-            tools=None,  # Don't pass MCP tools to base agent - handle separately
+            tools=None,  # No tools during init - will be handled async
             storage_table="web_agent_sessions",
             **kwargs
         )
     
-    def _setup_mcp_tools(self, server_path: str, server_dir: str) -> Optional[MCPTools]:
-        """Setup connection to existing MCP server"""
+    def get_mcp_command(self) -> str:
+        """Get MCP command for server startup"""
+        if not os.path.exists(self.server_path):
+            raise FileNotFoundError(f"MCP server not found at {self.server_path}")
+        
+        return f"python {os.path.abspath(self.server_path)}"
+    
+    async def setup_mcp_agent(self):
+        """Setup MCP tools and create agent following working pattern"""
         try:
-            if not os.path.exists(server_path):
-                print(f"⚠️  MCP server not found at {server_path}")
-                return None
-            
-            # Use absolute path - this should work regardless of working directory
-            mcp_command = f"python {os.path.abspath(server_path)}"
-            mcp_tools = MCPTools(command=mcp_command)
-            print(f"🔧 Web Agent connected to existing MCP server: {mcp_command}")
-            return mcp_tools
-            
+            # Initialize MCP tools like working example
+            mcp_command = self.get_mcp_command()
+            self.mcp_tools = MCPTools(command=mcp_command)
+            print(f"🔧 Web Agent MCP tools initialized: {mcp_command}")
+            return True
         except Exception as e:
-            print(f"❌ Failed to connect to MCP server: {e}")
-            return None
+            print(f"❌ Failed to setup MCP tools: {e}")
+            return False
+    
+    async def create_mcp_agent(self):
+        """Create agent with MCP tools inside context manager - called once"""
+        if not self.mcp_tools:
+            return False
+        
+        try:
+            # Create agent with MCP tools like working example
+            self.web_agent_with_mcp = Agent(
+                name="Web Research Specialist",
+                model=self.agent.model,
+                tools=[self.mcp_tools],
+                instructions=self.agent.instructions,
+                storage=self.agent.storage,
+                add_history_to_messages=True,
+                markdown=True,
+                show_tool_calls=True,
+            )
+            print("✅ Web Agent with MCP tools created")
+            return True
+        except Exception as e:
+            print(f"❌ Failed to create MCP agent: {e}")
+            return False
     
     async def activate_mcp_connection(self):
         """Activate MCP connection"""
@@ -85,6 +112,7 @@ class WebAgent(BaseAgent):
     async def aprocess_query(self, query: str, context: Optional[Dict] = None) -> str:
         """
         Async query processing for web agent with MCP tools
+        Uses the exact working pattern from Web-Search/agent.py
         
         Args:
             query: The user query to process
@@ -93,10 +121,6 @@ class WebAgent(BaseAgent):
         Returns:
             Agent's response as string
         """
-        if not self.mcp_tools:
-            # Fallback to synchronous processing if no MCP tools
-            return self.process_query(query, context)
-        
         # Add context to query if provided
         if context:
             context_str = "\n".join([f"- {k}: {v}" for k, v in context.items()])
@@ -105,40 +129,57 @@ class WebAgent(BaseAgent):
             enhanced_query = query
         
         try:
-            # Use async MCP tools with proper context manager pattern from working example
-            async with self.mcp_tools:
-                # Create agent with MCP tools similar to working example
-                web_agent = Agent(
-                    name="Web Research Specialist",
-                    model=self.agent.model,
-                    tools=[self.mcp_tools],
-                    instructions=self.agent.instructions,
-                    storage=self.agent.storage,
-                    add_history_to_messages=True,
-                    markdown=True,
-                    show_tool_calls=False,  # Reduce noise
-                )
+            # Change to server directory like the working example does
+            original_cwd = os.getcwd()
+            os.chdir(self.server_dir)
+            
+            try:
+                # Use exact pattern from working example - no timeout parameter
+                mcp_command = f"python {os.path.abspath('server.py')}"
+                mcp_tools = MCPTools(command=mcp_command)
                 
-                # Use arun method to get response object
-                response = await web_agent.arun(enhanced_query)
-                return response.content if hasattr(response, 'content') else str(response)
+                async with mcp_tools as active_tools:
+                    # Create agent with MCP tools inside context
+                    web_agent = Agent(
+                        name="Web Research Specialist",
+                        model=self.agent.model,
+                        tools=[active_tools],
+                        instructions=self.agent.instructions,
+                        storage=self.agent.storage,
+                        add_history_to_messages=True,
+                        markdown=True,
+                        show_tool_calls=False,  # Reduce noise for debugging
+                    )
+                    
+                    # Get response like working example
+                    response = await web_agent.arun(enhanced_query)
+                    return response.content if hasattr(response, 'content') else str(response)
+            
+            finally:
+                # Restore original working directory
+                os.chdir(original_cwd)
                 
         except Exception as e:
-            print(f"⚠️  MCP tools error: {e}")
-            # Fallback to base processing without MCP tools
-            return await super().aprocess_query(query, context)
+            print(f"⚠️  Web search error: {e}")
+            print(f"🔧 Query was: {enhanced_query[:100]}...")
+            import traceback
+            traceback.print_exc()
+            # Fallback to base processing
+            return f"Web search unavailable due to MCP connection issue. Please try again or rephrase your query."
     
     def get_mcp_tools_status(self) -> Dict[str, Any]:
         """Check MCP tools availability"""
+        server_available = os.path.exists(self.server_path)
         return {
-            "mcp_connected": bool(self.mcp_tools),
+            "mcp_connected": server_available,  # Server file exists
             "available_tools": [
                 "web_search",
                 "news_search", 
                 "smart_search",
                 "research_search"
-            ] if self.mcp_tools else [],
-            "server_path": str(Path(__file__).parent.parent / "Web-Search" / "server.py")
+            ] if server_available else [],
+            "server_path": self.server_path,
+            "server_exists": server_available
         }
     
     def get_capabilities(self) -> Dict[str, Any]:

@@ -99,13 +99,7 @@ class MultiAgentSystem:
             self.web_agent = WebAgent(
                 description="Specialist in web research and current information gathering"
             )
-            
-            # Activate MCP connection for Web Agent
-            mcp_status = await self.web_agent.activate_mcp_connection()
-            if mcp_status:
-                print("✅ Web Agent ready with MCP connection")
-            else:
-                print("⚠️  Web Agent ready (MCP connection failed)")
+            print("✅ Web Agent ready (MCP will be initialized per query)")
             
             # Initialize Coordinator Agent
             print("🎯 Initializing Coordinator Agent...")

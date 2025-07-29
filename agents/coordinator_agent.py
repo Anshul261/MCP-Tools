@@ -72,6 +72,17 @@ class CoordinatorAgent(BaseAgent):
         """
         query_lower = query.lower()
         
+        # Check for URLs first - always route to web
+        import re
+        url_pattern = r'https?://[^\s]+'
+        if re.search(url_pattern, query_lower):
+            return {
+                "query_type": QueryType.WEB_FOCUSED,
+                "routing_strategy": "web_primary",
+                "reasoning": "Contains URL - routing directly to web agent",
+                "confidence": 1.0
+            }
+        
         # Keywords for different query types
         document_keywords = [
             "leave policy", "policy", "internal", "document", "file", "report", "manual",
@@ -82,7 +93,8 @@ class CoordinatorAgent(BaseAgent):
         web_keywords = [
             "model context protocol", "mcp", "latest", "recent", "current", "news", 
             "today", "2024", "2025", "update", "breaking", "trend", "happening", "new",
-            "technology", "ai", "software", "general", "what is", "explain"
+            "technology", "ai", "software", "general", "what is", "explain", "github",
+            "website", "online", "internet", "search"
         ]
         
         fact_check_keywords = [
@@ -161,6 +173,7 @@ class CoordinatorAgent(BaseAgent):
         
         response_data = {
             "query": query,
+            "original_query": query,  # Store for validation
             "classification": classification,
             "agents_used": [],
             "responses": {},
@@ -209,8 +222,13 @@ class CoordinatorAgent(BaseAgent):
             response_data["agents_used"].append("web_agent")
             web_response = await self.web_agent.aprocess_query(query)
             response_data["responses"]["web"] = web_response
-            # For web-primary, the synthesis IS the web response
-            response_data["synthesis"] = web_response
+            
+            # Validate response relevance
+            if self._validate_response_relevance(query, web_response):
+                response_data["synthesis"] = web_response
+            else:
+                response_data["synthesis"] = f"I was unable to find relevant information about your query. The web agent response may not be directly related to what you asked. Please try rephrasing your question or provide more specific details."
+                response_data["validation_failed"] = True
         
         return response_data
     
@@ -320,15 +338,36 @@ Combining internal documentation with current external information to provide a 
         synthesis += f"**Routing Strategy**: {classification.get('routing_strategy', 'unknown')}\n"
         synthesis += f"**Reasoning**: {classification.get('reasoning', 'N/A')}\n\n"
         
-        # Combine responses based on what's available
+        # Combine responses based on what's available and relevance
         if "document" in responses and "web" in responses:
-            synthesis += "## Comprehensive Analysis\n\n"
-            synthesis += "### Internal Knowledge Base\n"
-            synthesis += responses["document"] + "\n\n"
-            synthesis += "### External/Current Information\n"
-            synthesis += responses["web"] + "\n\n"
-            synthesis += "### Synthesis\n"
-            synthesis += self._generate_conflict_analysis(responses["document"], responses["web"])
+            doc_response = responses["document"]
+            web_response = responses["web"]
+            
+            # Check if both responses are relevant
+            doc_relevant = self._validate_response_relevance(response_data.get("original_query", ""), doc_response)
+            web_relevant = self._validate_response_relevance(response_data.get("original_query", ""), web_response)
+            
+            if web_relevant and not doc_relevant:
+                # Only web response is relevant
+                synthesis += "## Web-Based Response\n\n"
+                synthesis += web_response
+            elif doc_relevant and not web_relevant:
+                # Only document response is relevant
+                synthesis += "## Document-Based Response\n\n"
+                synthesis += doc_response
+            elif web_relevant and doc_relevant:
+                # Both are relevant - provide comprehensive analysis
+                synthesis += "## Comprehensive Analysis\n\n"
+                synthesis += "### Internal Knowledge Base\n"
+                synthesis += doc_response + "\n\n"
+                synthesis += "### External/Current Information\n"
+                synthesis += web_response + "\n\n"
+                synthesis += "### Synthesis\n"
+                synthesis += self._generate_conflict_analysis(doc_response, web_response)
+            else:
+                # Neither response seems relevant
+                synthesis += "## Response Quality Issue\n\n"
+                synthesis += "I was unable to find clearly relevant information for your query. Please try rephrasing your question or providing more specific details."
         elif "document" in responses:
             synthesis += "## Document-Based Response\n\n"
             synthesis += responses["document"]
@@ -393,3 +432,42 @@ Combining internal documentation with current external information to provide a 
         })
         
         return base_caps
+    
+    def _validate_response_relevance(self, query: str, response: str) -> bool:
+        """
+        Validate if the response is relevant to the query
+        
+        Args:
+            query: Original user query
+            response: Agent response
+            
+        Returns:
+            Boolean indicating if response is relevant
+        """
+        if not response or len(response.strip()) < 20:
+            return False
+        
+        # Extract key terms from query (ignore common words)
+        import re
+        query_words = re.findall(r'\b\w+\b', query.lower())
+        stopwords = {'the', 'a', 'an', 'and', 'or', 'but', 'in', 'on', 'at', 'to', 'for', 
+                    'of', 'with', 'by', 'is', 'are', 'was', 'were', 'what', 'how', 'why', 
+                    'when', 'where', 'about', 'this', 'that', 'these', 'those'}
+        key_terms = [word for word in query_words if len(word) > 3 and word not in stopwords]
+        
+        # Check if at least some key terms appear in response
+        response_lower = response.lower()
+        matched_terms = sum(1 for term in key_terms if term in response_lower)
+        
+        # For URL queries, be more strict
+        if 'http' in query.lower():
+            # Should mention the domain or key parts of URL
+            url_match = re.search(r'https?://([^/\s]+)', query)
+            if url_match:
+                domain_parts = url_match.group(1).split('.')
+                domain_matches = sum(1 for part in domain_parts if part in response_lower)
+                return domain_matches > 0 and matched_terms > 0
+        
+        # General relevance check - at least 30% of key terms should match
+        relevance_threshold = max(1, len(key_terms) * 0.3)
+        return matched_terms >= relevance_threshold
