@@ -20,3 +20,7 @@ converted_docs/
 documents/
 logs/
 *.pdf
+uv.lock
+.python-version
+pyproject.toml
+output.txt
