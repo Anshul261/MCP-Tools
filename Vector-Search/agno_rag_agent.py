@@ -5,6 +5,7 @@ RAG Agent using Agno framework with Azure OpenAI, Docling, and Brave Search
 import os
 from pathlib import Path
 from dotenv import load_dotenv
+from agno.tools.mcp import MCPTools
 
 # Load environment variables
 load_dotenv()
@@ -143,7 +144,10 @@ def create_rag_agent():
     brave_search = None
     brave_api_key = os.getenv('BRAVE_API_KEY')
     if brave_api_key:
-        brave_search = BraveSearchTool(brave_api_key)
+            mcp_command = f"python {os.path.abspath('/home/anshul/Projects/AI-Search-MCP/Web-Search/server.py')}"
+            mcp_tools = MCPTools(command=mcp_command)
+            print("MCP tools initialized {}".format(mcp_tools))
+
     
     # Create agent
     agent = Agent(
@@ -155,19 +159,20 @@ def create_rag_agent():
             azure_deployment=os.getenv("AZURE_OPENAI_DEPLOYMENT_NAME"),
         ),
         knowledge=kb,
-        tools=[brave_search.web_search] if brave_search else None,
+        tools=[mcp_tools],
         description="RAG Assistant with local document search and web search capabilities",
         instructions=[
-            "You are a helpful AI assistant with access to local documents and web search.",
-            "First search through the local knowledge base for relevant information.",
-            "If the local documents don't contain sufficient information, use the web_search tool to find current information.",
-            "Always cite your sources clearly, indicating whether information comes from local documents or web sources.",
-            "Be accurate and provide comprehensive answers based on available context.",
-            "When using web search, summarize the key findings from multiple sources."
+            "You are a helpful AI assistant with access to local documents and web search",
+            "First search through the local knowledge base for relevant information",
+            "If the local documents don't contain sufficient information, use the mcp_tools for online search/web search to find current information",
+            "Always cite your sources clearly, indicating whether information comes from local documents or web sources using the research_search or smart_search tools",
+            "Be accurate and provide comprehensive answers based on available context",
+            "When using web search, summarize the key findings from multiple sources"
         ],
         search_knowledge=True,
         show_tool_calls=True,
         markdown=True,
+        num_history_responses=3,
     )
     
     return agent, SRC_DIR, CONVERTED_DIR, kb
@@ -276,16 +281,13 @@ def main():
     missing_vars = [var for var in required_vars if not os.getenv(var)]
     if missing_vars:
         print(f" Missing required environment variables: {missing_vars}")
-        print("Please check your .env file")
         return
     
     # Show configuration
     print(f"Azure OpenAI Endpoint: {os.getenv('AZURE_OPENAI_ENDPOINT')}")
     print(f"Deployment: {os.getenv('AZURE_OPENAI_DEPLOYMENT_NAME')}")
     print(f"Database: {os.getenv('DB_HOST')}:{os.getenv('DB_PORT')}/{os.getenv('DB_NAME')}")
-    print(f"Web Search: {'Enabled' if os.getenv('BRAVE_API_KEY') else 'Disabled'}")
     
-    # Check documents
     converted_dir = Path("converted_docs")
     if converted_dir.exists() and any(converted_dir.iterdir()):
         doc_count = len(list(converted_dir.iterdir()))
@@ -295,7 +297,6 @@ def main():
     
     print("\n" + "="*40)
     
-    # Start interactive session
     interactive_session()
 
 

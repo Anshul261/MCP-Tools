@@ -178,7 +178,7 @@ async def web_search(
     
     params = {
         "q": query,
-        "count": min(max(count, 1), 20),  # Clamp between 1 and 20
+        "count": min(max(count, 1), 20),
         "offset": offset,
         "country": country,
         "search_lang": search_lang,

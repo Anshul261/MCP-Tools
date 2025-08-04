@@ -6,8 +6,8 @@ A Level 4 AGNO architecture multi-agent system combining vector-based document s
 
 ```
 ┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
-│  Document Agent │    │   Web Agent     │    │ Coordinator     │
-│  (Vector Search)│    │ (MCP Web Search)│    │     Agent       │
+│  Document Agent │    │   Web Agent     │    │    Coordinator  │
+│  (Vector Search)│    │  (Web Search)   │    │       Agent     │
 └─────────────────┘    └─────────────────┘    └─────────────────┘
          │                       │                       │
          └───────────────────────┼───────────────────────┘
