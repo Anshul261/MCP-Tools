@@ -18,6 +18,9 @@ from agno.team.team import Team
 from agno.memory.v2.db.sqlite import SqliteMemoryDb
 from agno.memory.v2.memory import Memory
 from agno.memory.v2.schema import UserMemory
+import uuid
+from datetime import datetime
+
 # Create memory database with proper configuration
 MEMORY_DB_PATH = "agent_memory.db"
 memory_db = SqliteMemoryDb(
@@ -223,42 +226,8 @@ reasoning_knowledge_team = Team(
     success_criteria="Complete analysis with proper citations and continuity from previous conversations",
 )
 
-if __name__ == "__main__":
-    # Test with a session ID for continuity
-    user_id = "test_user_001"
-    session_id = "session_001"
-    
-    print("=== Testing Memory Functionality ===")
-    print(f"User ID: {user_id}")
-    print(f"Session ID: {session_id}")
-    
-    print("=== First Question ===")
-    reasoning_knowledge_team.print_response(
-        "What is the leave policy of the company?",
-        session_id=session_id,
-        stream=True,
-        show_full_reasoning=True,
-        stream_intermediate_steps=True,
-    )
-    
-    print("\n=== Follow-up Question ===")
-    reasoning_knowledge_team.print_response(
-        "Based on what we discussed about leave policy, what happens if I exceed my allocated days?",
-        session_id=session_id,
-        stream=True,
-        show_full_reasoning=True,
-        stream_intermediate_steps=True,
-    )
-
-    reasoning_knowledge_team.print_response(
-        "What do you remember about me and my previous questions?",
-        user_id=user_id,
-        session_id=session_id,
-        stream=True,
-        show_full_reasoning=True,
-        stream_intermediate_steps=True,
-    )
-
+def check_memory_status():
+    """Check memory database status"""
     print(f"\n=== Memory Database Status ===")
     memory_db_path = Path(MEMORY_DB_PATH)
     storage_db_path = Path(STORAGE_DB_PATH)
@@ -270,3 +239,65 @@ if __name__ == "__main__":
     print(f"Storage DB exists: {storage_db_path.exists()}")
     if storage_db_path.exists():
         print(f"Storage DB size: {storage_db_path.stat().st_size} bytes")
+
+def interactive_chat():
+    """Interactive chat interface"""
+    print("=== AI Assistant Chat Interface ===")
+    print("Type 'quit', 'exit', or 'q' to end the session")
+    print("Type 'memory' to check memory database status")
+    print("Type 'new' to start a new session")
+    print("-" * 50)
+    
+    # Get user ID
+    user_id = input("Enter your user ID (or press Enter for default): ").strip()
+    if not user_id:
+        user_id = "default_user"
+    
+    # Generate session ID with timestamp
+    session_id = f"session_{datetime.now().strftime('%Y%m%d_%H%M%S')}_{str(uuid.uuid4())[:8]}"
+    
+    print(f"User ID: {user_id}")
+    print(f"Session ID: {session_id}")
+    print("-" * 50)
+    
+    while True:
+        try:
+            # Get user input
+            user_question = input("\nYou: ").strip()
+            
+            # Handle special commands
+            if user_question.lower() in ['quit', 'exit', 'q']:
+                print("Goodbye!")
+                break
+            elif user_question.lower() == 'memory':
+                check_memory_status()
+                continue
+            elif user_question.lower() == 'new':
+                session_id = f"session_{datetime.now().strftime('%Y%m%d_%H%M%S')}_{str(uuid.uuid4())[:8]}"
+                print(f"Started new session: {session_id}")
+                continue
+            elif not user_question:
+                continue
+            
+            print("\nAssistant:")
+            print("-" * 30)
+            
+            # Get response from the team
+            reasoning_knowledge_team.print_response(
+                user_question,
+                user_id=user_id,
+                session_id=session_id,
+                stream=True,
+                show_full_reasoning=False,  # Set to True for debugging
+                stream_intermediate_steps=False,  # Set to True for debugging
+            )
+            
+        except KeyboardInterrupt:
+            print("\n\nChat interrupted. Goodbye!")
+            break
+        except Exception as e:
+            print(f"\nError: {e}")
+            print("Please try again.")
+
+if __name__ == "__main__":
+    interactive_chat()
