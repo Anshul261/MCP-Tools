@@ -1,4 +1,3 @@
-
 import os
 from pathlib import Path
 from dotenv import load_dotenv
@@ -13,16 +12,31 @@ from agno.embedder.huggingface import HuggingfaceCustomEmbedder
 from agno.models.azure import AzureOpenAI
 from agno.knowledge.text import TextKnowledgeBase
 from agno.vectordb.pgvector import PgVector, SearchType
-import requests
-from agno.agent import Agent
 from agno.tools.bravesearch import BraveSearchTools
 from agno.tools.reasoning import ReasoningTools
 from agno.team.team import Team
 from agno.memory.v2.db.sqlite import SqliteMemoryDb
 from agno.memory.v2.memory import Memory
+from agno.memory.v2.schema import UserMemory
+# Create memory database with proper configuration
+MEMORY_DB_PATH = "agent_memory.db"
+memory_db = SqliteMemoryDb(
+    table_name="agent_memory",
+    db_file=MEMORY_DB_PATH
+)
 
-memory_db = SqliteMemoryDb(table_name="memory", db_file="memory.db")
-memory = Memory(db=memory_db)
+# Initialize memory with proper configuration
+memory = Memory(
+    db=memory_db,
+)
+
+# Create storage for session persistence
+STORAGE_DB_PATH = "agent_sessions.db"
+storage = SqliteStorage(
+    table_name="agent_sessions",
+    db_file=STORAGE_DB_PATH
+)
+
 
 def add_documents(file_or_dir_path: str, src_dir: Path, converted_dir: Path, kb: TextKnowledgeBase):
     """Add new documents to the knowledge base"""
@@ -92,8 +106,8 @@ TABLE_NAME = os.getenv("PGVECTOR_TABLE", "rag_documents")
 
 # Create local embedder using HuggingFace
 embedder = HuggingfaceCustomEmbedder(
-    id="BAAI/bge-small-en-v1.5",  # Fast and efficient local model
-    dimensions=384  # BGE small model has 384 dimensions
+    id="BAAI/bge-small-en-v1.5",
+    dimensions=384
 )
 
 # Create vector database
@@ -114,103 +128,145 @@ kb = TextKnowledgeBase(
 # Load knowledge base if documents exist
 if CONVERTED_DIR.exists() and any(CONVERTED_DIR.iterdir()):
     print("Loading knowledge base...")
-    kb.load(recreate=False)  # Set to True to rebuild
+    kb.load(recreate=False)
     print("Knowledge base loaded")
 
-# Initialize web search tool
-brave_search = None
-brave_api_key = os.getenv('BRAVE_API_KEY')
-if brave_api_key:
-        mcp_command = f"python {os.path.abspath('/home/anshul/Projects/AI-Search-MCP/Web-Search/server.py')}"
-        mcp_tools = MCPTools(command=mcp_command)
-        print("MCP tools initialized {}".format(mcp_tools))
+# Shared model configuration
+azure_model = AzureOpenAI(
+    id=os.getenv("AZURE_OPENAI_DEPLOYMENT_NAME"),
+    api_key=os.getenv("AZURE_OPENAI_API_KEY"),
+    api_version=os.getenv("OPENAI_API_VERSION", "2024-02-15-preview"),
+    azure_endpoint=os.getenv("AZURE_OPENAI_ENDPOINT"),
+    azure_deployment=os.getenv("AZURE_OPENAI_DEPLOYMENT_NAME"),
+)
 
-
-# Create agent
+# Create document agent with memory
 doc_agent = Agent(
     name="Doc Agent",
     role="Handles local document search",
     knowledge=kb,
-    model=AzureOpenAI(
-        id=os.getenv("AZURE_OPENAI_DEPLOYMENT_NAME"),
-        api_key=os.getenv("AZURE_OPENAI_API_KEY"),
-        api_version=os.getenv("OPENAI_API_VERSION", "2024-02-15-preview"),
-        azure_endpoint=os.getenv("AZURE_OPENAI_ENDPOINT"),
-        azure_deployment=os.getenv("AZURE_OPENAI_DEPLOYMENT_NAME"),
-    ),
-    description="RAG Assistant with local document search and web search capabilities",
+    model=azure_model,
+    memory=memory,
+    storage=storage,
+    enable_user_memories=True,
+    enable_session_summaries=True,
+    enable_agentic_memory=True,
+    add_history_to_messages=True,
+    num_history_runs=6,
+    description="RAG Assistant with local document search capabilities",
     instructions=[
-        "You are a helpful AI assistant with access to local documents and web search",
-        "First search through the local knowledge base for relevant information",
-        "If the local documents don't contain sufficient information, use the mcp_tools for online search/web search to find current information",
-        "Always cite your sources clearly, indicating whether information comes from local documents or web sources using the research_search or smart_search tools",
+        "You are a helpful AI assistant with access to local documents",
+        "Search through the local knowledge base for relevant information",
+        "Always cite your sources clearly from local documents",
         "Be accurate and provide comprehensive answers based on available context",
-        "When using web search, summarize the key findings from multiple sources"
+        "Remember previous conversations and build upon them"
     ],
     search_knowledge=True,
     show_tool_calls=True,
-    num_history_responses=6,
     markdown=True,
 )
 
-
+# Create web agent with memory
 web_agent = Agent(
     name="Web Agent",
     role="Handles web search and news",
-    model=AzureOpenAI(
-        id=os.getenv("AZURE_OPENAI_DEPLOYMENT_NAME"),
-        api_key=os.getenv("AZURE_OPENAI_API_KEY"),
-        api_version=os.getenv("OPENAI_API_VERSION", "2024-02-15-preview"),
-        azure_endpoint=os.getenv("AZURE_OPENAI_ENDPOINT"),
-        azure_deployment=os.getenv("AZURE_OPENAI_DEPLOYMENT_NAME"),
-    ),
+    model=azure_model,
+    memory=memory,
+    enable_user_memories=True,
+    enable_session_summaries=True,
+    enable_agentic_memory=True,
+    add_history_to_messages=True,
+    num_history_runs=6,
+
     tools=[BraveSearchTools()],
-    description="You are a news agent that helps users find the latest news.",
+    description="News agent that helps users find the latest news",
     instructions=[
-        """Given a topic by the user, respond the results about that topic. 
-        Iteratively search for more news items until you have a comprehensive list or a specific answer you have to provide citations for the sources you used to answer the question
-        Example:
+        "Given a topic by the user, search for results about that topic",
+        "Iteratively search for more news items until you have comprehensive information",
+        "Always provide citations for sources used to answer questions",
+        "Remember previous searches and conversations to provide better context",
+        """Example:
         Question: What is the latest news in the stock market?
         Answer: The latest news in the stock market is that the stock market is up 1% today.
-        Citations: [Source 1, Source 2, Source 3]"""
+        Citations: [Source 1, Source 2, Source 3]""",
     ],
     show_tool_calls=True,
     markdown=True,
-    num_history_responses=6,
 )
 
-
-reaonsing_knowledge_team = Team(
+# Create team with memory
+reasoning_knowledge_team = Team(
     name="Reasoning Knowledge Team",
     mode="coordinate",
-    model=AzureOpenAI(
-        id=os.getenv("AZURE_OPENAI_DEPLOYMENT_NAME"),
-        api_key=os.getenv("AZURE_OPENAI_API_KEY"),
-        api_version=os.getenv("OPENAI_API_VERSION", "2024-02-15-preview"),
-        azure_endpoint=os.getenv("AZURE_OPENAI_ENDPOINT"),
-        azure_deployment=os.getenv("AZURE_OPENAI_DEPLOYMENT_NAME"),
-    ),
+    model=azure_model,
     members=[web_agent, doc_agent],
     tools=[ReasoningTools(add_instructions=True)],
+    memory=memory,
+    storage=storage,
+    enable_user_memories=True,
+    enable_session_summaries=True,
+    enable_agentic_memory=True,
+    add_history_to_messages=True,
+    num_history_runs=6,
+
     instructions=[
-        """You are a helpful AI assistant with access to local documents and web search
-        First search through the local knowledge base for relevant information
-        If the local documents don't contain sufficient information, use the mcp_tools for online search/web search to find current information
-        Always cite your sources clearly, indicating whether information comes from local documents or web sources using the research_search or smart_search tools
-        Be accurate and provide comprehensive answers based on available context
-        When using web search, summarize the key findings from multiple sources"""
+        "You coordinate between document search and web search agents",
+        "First try local documents, then web search if needed",
+        "Always cite sources clearly",
+        "Remember previous conversations and build upon them",
+        "Provide comprehensive answers with proper context"
     ],
     markdown=True,
-    memory=memory,
     show_members_responses=True,
     enable_agentic_context=True,
     add_datetime_to_instructions=True,
-    success_criteria="The team has provided a complete financial analysis with data, visualizations, risk assessment, and actionable investment recommendations supported by quantitative analysis and market research.",
+    success_criteria="Complete analysis with proper citations and continuity from previous conversations",
 )
 
 if __name__ == "__main__":
-    reaonsing_knowledge_team.print_response("""What is the leave policy of the company?""",
+    # Test with a session ID for continuity
+    user_id = "test_user_001"
+    session_id = "session_001"
+    
+    print("=== Testing Memory Functionality ===")
+    print(f"User ID: {user_id}")
+    print(f"Session ID: {session_id}")
+    
+    print("=== First Question ===")
+    reasoning_knowledge_team.print_response(
+        "What is the leave policy of the company?",
+        session_id=session_id,
         stream=True,
         show_full_reasoning=True,
         stream_intermediate_steps=True,
     )
+    
+    print("\n=== Follow-up Question ===")
+    reasoning_knowledge_team.print_response(
+        "Based on what we discussed about leave policy, what happens if I exceed my allocated days?",
+        session_id=session_id,
+        stream=True,
+        show_full_reasoning=True,
+        stream_intermediate_steps=True,
+    )
+
+    reasoning_knowledge_team.print_response(
+        "What do you remember about me and my previous questions?",
+        user_id=user_id,
+        session_id=session_id,
+        stream=True,
+        show_full_reasoning=True,
+        stream_intermediate_steps=True,
+    )
+
+    print(f"\n=== Memory Database Status ===")
+    memory_db_path = Path(MEMORY_DB_PATH)
+    storage_db_path = Path(STORAGE_DB_PATH)
+    
+    print(f"Memory DB exists: {memory_db_path.exists()}")
+    if memory_db_path.exists():
+        print(f"Memory DB size: {memory_db_path.stat().st_size} bytes")
+    
+    print(f"Storage DB exists: {storage_db_path.exists()}")
+    if storage_db_path.exists():
+        print(f"Storage DB size: {storage_db_path.stat().st_size} bytes")
