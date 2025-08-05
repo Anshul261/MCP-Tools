@@ -9,10 +9,12 @@ __pycache__/
 *.sqlite3
 *.log
 *.env
+*.csv
 .DS_Store
 .vscode/
 .idea/
 *.swp
+archive/
 *.swo
 *.bak
 *.tmp
