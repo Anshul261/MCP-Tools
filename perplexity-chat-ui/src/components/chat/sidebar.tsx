@@ -141,18 +141,7 @@ export default function Sidebar() {
                   <h2 className="text-lg font-semibold text-foreground bg-gradient-to-r from-foreground to-foreground-secondary bg-clip-text text-transparent">
                     Chats
                   </h2>
-                  <motion.div
-                    animate={{ 
-                      rotate: 360,
-                      scale: [1, 1.1, 1]
-                    }}
-                    transition={{ 
-                      rotate: { duration: 20, repeat: Infinity, ease: "linear" },
-                      scale: { duration: 2, repeat: Infinity, ease: "easeInOut" }
-                    }}
-                  >
-                    <SparklesIcon className="h-4 w-4 text-primary/60" />
-                  </motion.div>
+                  <SparklesIcon className="h-4 w-4 text-primary/60" />
                 </div>
 
                 {/* Stats */}
@@ -244,19 +233,7 @@ export default function Sidebar() {
                       <div className="flex items-start justify-between">
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-2 mb-1">
-                            <motion.div
-                              animate={{ 
-                                rotate: currentSession?.id === session.id ? 360 : 0,
-                                scale: currentSession?.id === session.id ? [1, 1.2, 1] : 1
-                              }}
-                              transition={{ 
-                                duration: currentSession?.id === session.id ? 2 : 0.3,
-                                repeat: currentSession?.id === session.id ? Infinity : 0,
-                                ease: "linear"
-                              }}
-                            >
-                              <MessageSquareIcon className={`h-3 w-3 ${currentSession?.id === session.id ? 'text-primary' : 'text-foreground-muted'}`} />
-                            </motion.div>
+                            <MessageSquareIcon className={`h-3 w-3 ${currentSession?.id === session.id ? 'text-primary' : 'text-foreground-muted'}`} />
                             <h3 className="font-medium text-foreground truncate">
                               {session.title}
                             </h3>
