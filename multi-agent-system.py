@@ -151,6 +151,14 @@ azure_model_04 = AzureOpenAI(
     azure_deployment=os.getenv("AZURE_OPENAI_DEPLOYMENT_NAME_o4"),
 )
 
+azure_model_5 = AzureOpenAI(
+    id=os.getenv("AZURE_OPENAI_DEPLOYMENT_NAME_5"),
+    api_key=os.getenv("AZURE_OPENAI_API_KEY_5"),
+    api_version=os.getenv("OPENAI_API_VERSION", "2024-02-15-preview"),
+    azure_endpoint=os.getenv("AZURE_OPENAI_ENDPOINT_5"),
+    azure_deployment=os.getenv("AZURE_OPENAI_DEPLOYMENT_NAME_5"),
+)
+
 # Create document agent with memory
 doc_agent = Agent(
     name="Doc Agent",
