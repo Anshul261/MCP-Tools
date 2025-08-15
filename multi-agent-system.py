@@ -109,9 +109,10 @@ TABLE_NAME = os.getenv("PGVECTOR_TABLE", "rag_documents")
 
 # Create local embedder using HuggingFace
 embedder = HuggingfaceCustomEmbedder(
-    id="BAAI/bge-small-en-v1.5",
-    dimensions=384
-)
+        id="BAAI/bge-small-en-v1.5",
+        dimensions=384,
+        api_key=os.getenv("HUGGINGFACE_HUB_TOKEN")
+    )
 
 # Create vector database
 vector_db = PgVector(

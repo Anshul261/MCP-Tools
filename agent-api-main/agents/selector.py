@@ -4,14 +4,12 @@ from typing import List, Optional
 from agents.agno_assist import get_agno_assist
 from agents.finance_agent import get_finance_agent
 from agents.web_agent import get_web_agent
-from agents.reasoning_knowledge_team import get_reasoning_knowledge_team
 
 
 class AgentType(Enum):
     WEB_AGENT = "web_agent"
     AGNO_ASSIST = "agno_assist"
     FINANCE_AGENT = "finance_agent"
-    REASONING_KNOWLEDGE_TEAM = "reasoning_knowledge_team"
 
 
 def get_available_agents() -> List[str]:
@@ -32,7 +30,5 @@ def get_agent(
         return get_agno_assist(model_id=model_id, user_id=user_id, session_id=session_id, debug_mode=debug_mode)
     elif agent_id == AgentType.FINANCE_AGENT:
         return get_finance_agent(model_id=model_id, user_id=user_id, session_id=session_id, debug_mode=debug_mode)
-    elif agent_id == AgentType.REASONING_KNOWLEDGE_TEAM:
-        return get_reasoning_knowledge_team(model_id=model_id, user_id=user_id, session_id=session_id, debug_mode=debug_mode)
 
     raise ValueError(f"Agent: {agent_id} not found")
