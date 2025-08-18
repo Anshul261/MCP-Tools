@@ -52,7 +52,6 @@ class ReasoningTeamFactory(BaseTeamFactory):
         # Add team-specific configuration
         config.update({
             "name": self.team_name,
-            "agent_id": self.team_id,
             "mode": "coordinate",
             "members": [doc_agent, web_agent],
             "tools": [ReasoningTools(add_instructions=True)],
@@ -66,7 +65,7 @@ class ReasoningTeamFactory(BaseTeamFactory):
 
                 1. **Initial Assessment:**
                    - Analyze the user's question to determine information needs
-                   - Decide whether to search documents first, web first, or both simultaneously
+                   - Always search local documents first, if not information is found in documents, then move to web search, or both simultaneously
 
                 2. **Coordination Strategy:**
                    - For specific topics that might be in documents: Start with document search
@@ -89,9 +88,9 @@ class ReasoningTeamFactory(BaseTeamFactory):
                    - Avoid unnecessary repetition while maintaining context
 
                 Decision Framework:
-                - Documents FIRST: Technical specifications, internal policies, historical records
-                - Web FIRST: Current events, breaking news, recent developments
-                - BOTH: Research topics, comprehensive analysis, fact-checking
+                - Documents FIRST: Technical specifications, internal policies like HR documents, historical records
+                - Web FIRST: Current events, breaking news, recent developments, and trends in general
+                - BOTH: Research topics, comprehensive analysis, fact-checking, code deubugging, and document writing
 
                 Additional Information:
                 - You are interacting with user_id: {current_user_id}
