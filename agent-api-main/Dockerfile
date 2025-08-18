@@ -1,29 +1,55 @@
-FROM agnohq/python:3.12
+# Dockerfile
+FROM python:3.11-slim
 
-ARG USER=app
-ARG APP_DIR=/app
-ENV APP_DIR=${APP_DIR}
+# Set environment variables
+ENV PYTHONUNBUFFERED=1 \
+    PYTHONDONTWRITEBYTECODE=1 \
+    PIP_NO_CACHE_DIR=1 \
+    PIP_DISABLE_PIP_VERSION_CHECK=1
 
-# Create user and home directory
-RUN groupadd -g 61000 ${USER} \
-  && useradd -g 61000 -u 61000 -ms /bin/bash -d ${APP_DIR} ${USER}
+# Install system dependencies
+RUN apt-get update && apt-get install -y \
+    # For document processing
+    poppler-utils \
+    tesseract-ocr \
+    libreoffice \
+    # For building Python packages
+    build-essential \
+    # For health checks
+    curl \
+    # Clean up
+    && apt-get clean \
+    && rm -rf /var/lib/apt/lists/*
 
-WORKDIR ${APP_DIR}
+# Create non-root user
+RUN groupadd -g 1000 appuser && \
+    useradd -r -u 1000 -g appuser -d /app -s /bin/bash appuser
 
-# Copy requirements.txt
-COPY requirements.txt ./
+# Set working directory
+WORKDIR /app
 
-# Install requirements
-RUN uv pip sync requirements.txt --system
+# Copy requirements first for better Docker layer caching
+COPY requirements.txt .
 
-# Copy project files
+# Install Python dependencies
+RUN pip install --no-cache-dir -r requirements.txt
+
+# Copy application code
 COPY . .
 
-# Set permissions for the /app directory
-RUN chown -R ${USER}:${USER} ${APP_DIR}
+# Create necessary directories
+RUN mkdir -p documents converted_docs && \
+    chown -R appuser:appuser /app
 
 # Switch to non-root user
-USER ${USER}
+USER appuser
 
-ENTRYPOINT ["/app/scripts/entrypoint.sh"]
-CMD ["chill"]
+# Expose port
+EXPOSE 8000
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
+    CMD curl -f http://localhost:8000/v1/health || exit 1
+
+# Default command
+CMD ["python", "-m", "uvicorn", "api.main:app", "--host", "0.0.0.0", "--port", "8000"]

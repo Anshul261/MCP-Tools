@@ -1,194 +1,398 @@
-# Simple Agent API
+# Custom Agent API
 
-Welcome to the Simple Agent API: a robust, production-ready application for serving Agents as an API. It includes:
-  * A **FastAPI server** for handling API requests.
-  * A **PostgreSQL database** for storing Agent sessions, knowledge, and memories.
-  * A set of **pre-built Agents** to use as a starting point.
+A production-ready FastAPI application that provides intelligent agents for document search, web search, and coordinated reasoning. Built with the Agno framework and designed for enterprise deployment with Azure services.
 
-For more information, checkout [Agno](https://agno.link/gh) and give it a ⭐️
+## 🚀 Features
 
-## Quickstart
+- **Document Agent**: RAG-powered document search and analysis
+- **Web Agent**: Real-time web search and information retrieval  
+- **Reasoning Team**: Coordinated multi-agent responses combining document and web sources
+- **Azure Integration**: Full support for Azure PostgreSQL and Azure OpenAI
+- **Production Ready**: Docker support, health checks, and comprehensive logging
+- **Modern API**: FastAPI with automatic documentation and validation
 
-Follow these steps to get your Agent API up and running:
+## 🏗️ Architecture
 
-> Prerequisites: [docker desktop](https://www.docker.com/products/docker-desktop) should be installed and running.
-
-### Clone the repo
-
-```sh
-git clone https://github.com/agno-agi/agent-api.git
-cd agent-api
+```
+custom-agent-api/
+├── agents/           # Agent implementations and factories
+├── api/             # FastAPI routes and application
+├── core/            # Core configuration and database management
+├── scripts/         # Deployment and utility scripts
+├── tests/           # Test suite
+└── docs/            # Documentation
 ```
 
-### Configure API keys
+## 🚀 Quick Start
 
-We use GPT 4.1 as the default model, please export the `OPENAI_API_KEY` environment variable to get started.
+### Prerequisites
 
-```sh
-export OPENAI_API_KEY="YOUR_API_KEY_HERE"
+- Python 3.11+
+- Azure PostgreSQL database with pgvector extension
+- Azure OpenAI deployment
+- HuggingFace account (for embeddings)
+
+### One-Command Setup
+
+```bash
+# Clone the repository
+git clone <your-repo-url>
+cd custom-agent-api
+
+# Make scripts executable
+chmod +x scripts/*.sh
+
+# Start the application (will guide you through setup)
+./scripts/start.sh
 ```
 
-> **Note**: You can use any model provider, just update the agents in the `/agents` folder.
+The startup script will:
+1. Create a `.env` file from template
+2. Prompt you to configure your credentials
+3. Set up the environment
+4. Start the API server
 
-### Start the application
+### Manual Setup
 
-Run the application using docker compose:
+1. **Environment Configuration**
+   ```bash
+   cp .env.example .env
+   # Edit .env with your Azure credentials
+   ```
 
-```sh
-docker compose up -d
+2. **Development Mode**
+   ```bash
+   ./scripts/start.sh --dev
+   ```
+
+3. **Production Mode**
+   ```bash
+   ./scripts/start.sh
+   ```
+
+4. **Docker Deployment**
+   ```bash
+   ./scripts/start.sh --docker
+   ```
+
+## 🔧 Configuration
+
+### Required Environment Variables
+
+```bash
+# Azure PostgreSQL
+DB_USER=your_db_user
+DB_PASSWORD=your_db_password  
+DB_HOST=your-server.postgres.database.azure.com
+DB_NAME=your_database_name
+
+# Azure OpenAI
+AZURE_OPENAI_API_KEY=your_api_key
+AZURE_OPENAI_ENDPOINT=https://your-resource.openai.azure.com/
+AZURE_OPENAI_DEPLOYMENT_NAME=gpt-4
+
+# HuggingFace
+HUGGINGFACE_HUB_TOKEN=your_token
 ```
 
-This command starts:
-* The **FastAPI server**, running on [http://localhost:8000](http://localhost:8000).
-* The **PostgreSQL database**, accessible on `localhost:5432`.
+### Optional Configuration
 
-Once started, you can:
-* Test the API at [http://localhost:8000/docs](http://localhost:8000/docs).
+```bash
+# Web search (enhances web agent capabilities)
+BRAVE_API_KEY=your_brave_api_key
 
-### Connect to Agno Playground or Agent UI
-
-* Open the [Agno Playground](https://app.agno.com/playground).
-* Add `http://localhost:8000` as a new endpoint. You can name it `Agent API` (or any name you prefer).
-* Select your newly added endpoint and start chatting with your Agents.
-
-https://github.com/user-attachments/assets/a0078ade-9fb7-4a03-a124-d5abcca6b562
-
-### Stop the application
-
-When you're done, stop the application using:
-
-```sh
-docker compose down
+# API customization
+API_PORT=8000
+API_DEBUG=false
+API_DOCS_ENABLED=true
 ```
 
-## Prebuilt Agents
+## 📚 API Usage
 
-The `/agents` folder contains pre-built agents that you can use as a starting point.
-- Web Search Agent: A simple agent that can search the web.
-- Agno Assist: An Agent that can help answer questions about Agno.
-  - Important: Make sure to load the `agno_assist` [knowledge base](http://localhost:8000/docs#/Agents/load_agent_knowledge_v1_agents__agent_id__knowledge_load_post) before using this agent.
-- Finance Agent: An agent that uses the YFinance API to get stock prices and financial data.
+### Available Endpoints
 
-## Development Setup
+- `GET /v1/health` - System health check
+- `GET /v1/agents` - List available agents
+- `POST /v1/agents/{agent_id}/chat` - Chat with an agent
+- `POST /v1/documents/upload` - Upload documents
+- `POST /v1/documents/process` - Convert and index documents
+- `GET /docs` - Interactive API documentation
 
-To setup your local virtual environment:
+### Available Agents
 
-### Install `uv`
+1. **doc_agent** - Document search and analysis
+2. **web_agent** - Web search and current information
+3. **reasoning_team** - Coordinated document + web search
 
-We use `uv` for python environment and package management. Install it by following the the [`uv` documentation](https://docs.astral.sh/uv/#getting-started) or use the command below for unix-like systems:
+### Example Usage
 
-```sh
-curl -LsSf https://astral.sh/uv/install.sh | sh
+```bash
+# Check API health
+curl http://localhost:8000/v1/health
+
+# List available agents
+curl http://localhost:8000/v1/agents
+
+# Chat with document agent
+curl -X POST http://localhost:8000/v1/agents/doc_agent/chat \
+  -H "Content-Type: application/json" \
+  -d '{
+    "message": "What information is available about AI?",
+    "user_id": "user123", 
+    "stream": false
+  }'
+
+# Upload documents
+curl -X POST http://localhost:8000/v1/documents/upload \
+  -F "files=@document.pdf"
+
+# Process uploaded documents
+curl -X POST http://localhost:8000/v1/documents/process
 ```
 
-### Create Virtual Environment & Install Dependencies
+### Python Client Example
 
-Run the `dev_setup.sh` script. This will create a virtual environment and install project dependencies:
+```python
+import requests
 
-```sh
-./scripts/dev_setup.sh
+# Initialize client
+base_url = "http://localhost:8000"
+
+# Chat with reasoning team
+response = requests.post(f"{base_url}/v1/agents/reasoning_team/chat", json={
+    "message": "Compare document information with current web trends",
+    "user_id": "user123",
+    "stream": False
+})
+
+print(response.json()["response"])
 ```
 
-### Activate Virtual Environment
+## 🐳 Docker Deployment
 
-Activate the created virtual environment:
+### Development with Docker
 
-```sh
-source .venv/bin/activate
+```bash
+# Build and start with Docker Compose
+./scripts/start.sh --docker
+
+# View logs
+docker-compose logs -f
+
+# Stop services  
+docker-compose down
 ```
 
-(On Windows, the command might differ, e.g., `.venv\Scripts\activate`)
+### Production Deployment
 
-## Managing Python Dependencies
+```bash
+# Build production image
+docker build -t custom-agent-api:latest .
 
-If you need to add or update python dependencies:
-
-### Modify pyproject.toml
-
-Add or update your desired Python package dependencies in the `[dependencies]` section of the `pyproject.toml` file.
-
-### Generate requirements.txt
-
-The `requirements.txt` file is used to build the application image. After modifying `pyproject.toml`, regenerate `requirements.txt` using:
-
-```sh
-./scripts/generate_requirements.sh
+# Run with environment file
+docker run -d \
+  --name custom-agent-api \
+  --env-file .env \
+  -p 8000:8000 \
+  -v ./documents:/app/documents \
+  -v ./converted_docs:/app/converted_docs \
+  custom-agent-api:latest
 ```
 
-To upgrade all existing dependencies to their latest compatible versions, run:
+## 🔍 Document Processing
 
-```sh
-./scripts/generate_requirements.sh upgrade
+### Supported Formats
+
+- PDF documents
+- Microsoft Word (.docx)
+- PowerPoint (.pptx)  
+- Plain text (.txt)
+
+### Processing Workflow
+
+1. **Upload**: Documents uploaded via API
+2. **Convert**: Docling converts to markdown
+3. **Embed**: HuggingFace creates embeddings
+4. **Index**: Stored in PostgreSQL with pgvector
+5. **Search**: Available to document agent
+
+### Usage
+
+```bash
+# Upload multiple documents
+curl -X POST http://localhost:8000/v1/documents/upload \
+  -F "files=@doc1.pdf" \
+  -F "files=@doc2.docx"
+
+# Process all documents  
+curl -X POST http://localhost:8000/v1/documents/process
+
+# Check processing status
+curl http://localhost:8000/v1/documents/stats
 ```
 
-### Rebuild Docker Images
+## 🚀 Production Deployment
 
-Rebuild your Docker images to include the updated dependencies:
+### Azure Container Instances
 
-```sh
-docker compose up -d --build
+```bash
+# Build and push to Azure Container Registry
+az acr build --registry myregistry --image custom-agent-api:latest .
+
+# Deploy to Container Instances
+az container create \
+  --resource-group mygroup \
+  --name custom-agent-api \
+  --image myregistry.azurecr.io/custom-agent-api:latest \
+  --environment-variables @env-vars.yaml \
+  --ports 8000
 ```
 
-## Community & Support
+### Kubernetes Deployment
 
-Need help, have a question, or want to connect with the community?
-
-* 📚 **[Read the Agno Docs](https://docs.agno.com)** for more in-depth information.
-* 💬 **Chat with us on [Discord](https://agno.link/discord)** for live discussions.
-* ❓ **Ask a question on [Discourse](https://agno.link/community)** for community support.
-* 🐛 **[Report an Issue](https://github.com/agno-agi/agent-api/issues)** on GitHub if you find a bug or have a feature request.
-
-## Running in Production
-
-This repository includes a `Dockerfile` for building a production-ready container image of the application.
-
-The general process to run in production is:
-
-1. Update the `scripts/build_image.sh` file and set your IMAGE_NAME and IMAGE_TAG variables.
-2. Build and push the image to your container registry:
-
-```sh
-./scripts/build_image.sh
+```yaml
+# k8s-deployment.yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: custom-agent-api
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: custom-agent-api
+  template:
+    metadata:
+      labels:
+        app: custom-agent-api
+    spec:
+      containers:
+      - name: api
+        image: custom-agent-api:latest
+        ports:
+        - containerPort: 8000
+        envFrom:
+        - secretRef:
+            name: api-secrets
 ```
-3. Run in your cloud provider of choice.
 
-### Detailed Steps
+## 🔧 Development
 
-1. **Configure for Production**
-  * Ensure your production environment variables (e.g., `OPENAI_API_KEY`, database connection strings) are securely managed. Most cloud providers offer a way to set these as environment variables for your deployed service.
-  * Review the agent configurations in the `/agents` directory and ensure they are set up for your production needs (e.g., correct model versions, any production-specific settings).
+### Setup Development Environment
 
-2. **Build Your Production Docker Image**
-  * Update the `scripts/build_image.sh` script to set your desired `IMAGE_NAME` and `IMAGE_TAG` (e.g., `your-repo/agent-api:v1.0.0`).
-  * Run the script to build and push the image:
+```bash
+# Development mode with auto-reload
+./scripts/start.sh --dev
 
-    ```sh
-    ./scripts/build_image.sh
-    ```
+# Install development dependencies
+pip install -e ".[dev]"
 
-3. **Deploy to a Cloud Service**
-  With your image in a registry, you can deploy it to various cloud services that support containerized applications. Some common options include:
+# Run tests
+pytest
 
-  * **Serverless Container Platforms**:
-    * **Google Cloud Run**: A fully managed platform that automatically scales your stateless containers. Ideal for HTTP-driven applications.
-    * **AWS App Runner**: Similar to Cloud Run, AWS App Runner makes it easy to deploy containerized web applications and APIs at scale.
-    * **Azure Container Apps**: Build and deploy modern apps and microservices using serverless containers.
+# Code formatting
+black .
+ruff check .
+```
 
-  * **Container Orchestration Services**:
-    * **Amazon Elastic Container Service (ECS)**: A highly scalable, high-performance container orchestration service that supports Docker containers. Often used with AWS Fargate for serverless compute or EC2 instances for more control.
-    * **Google Kubernetes Engine (GKE)**: A managed Kubernetes service for deploying, managing, and scaling containerized applications using Google infrastructure.
-    * **Azure Kubernetes Service (AKS)**: A managed Kubernetes service for deploying and managing containerized applications in Azure.
+### Project Structure
 
-  * **Platform as a Service (PaaS) with Docker Support**
-    * **Railway.app**: Offers a simple way to deploy applications from a Dockerfile. It handles infrastructure, scaling, and networking.
-    * **Render**: Another platform that simplifies deploying Docker containers, databases, and static sites.
-    * **Heroku**: While traditionally known for buildpacks, Heroku also supports deploying Docker containers.
+- **agents/**: Agent implementations using factory pattern
+- **api/**: FastAPI routes and application configuration  
+- **core/**: Shared configuration, database, and utilities
+- **scripts/**: Deployment and utility scripts
+- **tests/**: Comprehensive test suite
 
-  * **Specialized Platforms**:
-    * **Modal**: A platform designed for running Python code (including web servers like FastAPI) in the cloud, often with a focus on batch jobs, scheduled functions, and model inference, but can also serve web endpoints.
+### Adding New Agents
 
-  The specific deployment steps will vary depending on the chosen provider. Generally, you'll point the service to your container image in the registry and configure aspects like port mapping (the application runs on port 8000 by default inside the container), environment variables, scaling parameters, and any necessary database connections.
+1. Create agent factory in `agents/`
+2. Register in `agents/selector.py`
+3. Add tests in `tests/`
 
-4. **Database Configuration**
-  * The default `docker-compose.yml` sets up a PostgreSQL database for local development. In production, you will typically use a managed database service provided by your cloud provider (e.g., AWS RDS, Google Cloud SQL, Azure Database for PostgreSQL) for better reliability, scalability, and manageability.
-  * Ensure your deployed application is configured with the correct database connection URL for your production database instance. This is usually set via an environment variables.
+```python
+# agents/my_agent.py
+from agents.base import BaseAgentFactory
+
+class MyAgentFactory(BaseAgentFactory):
+    @property  
+    def agent_id(self) -> str:
+        return "my_agent"
+    
+    def create_agent(self, user_id, session_id, debug_mode):
+        # Implementation
+        pass
+```
+
+## 📊 Monitoring and Logging
+
+### Health Checks
+
+```bash
+# Basic health check
+curl http://localhost:8000/v1/health
+
+# Database health  
+curl http://localhost:8000/v1/health/database
+
+# Document system health
+curl http://localhost:8000/v1/documents/health
+```
+
+### Logging
+
+- **Development**: Console output with debug information
+- **Production**: Structured JSON logs to files
+- **Docker**: Container logs via Docker logging drivers
+
+### Metrics
+
+The API provides built-in metrics for:
+- Request/response times
+- Error rates  
+- Agent usage statistics
+- Document processing metrics
+
+## 🤝 Contributing
+
+1. Fork the repository
+2. Create a feature branch
+3. Make your changes
+4. Add tests
+5. Submit a pull request
+
+### Code Standards
+
+- Python 3.11+ type hints
+- Black code formatting
+- Ruff linting
+- Comprehensive test coverage
+- Clear documentation
+
+## 📄 License
+
+This project is licensed under the MIT License - see the LICENSE file for details.
+
+## 🆘 Support
+
+### Common Issues
+
+**Database Connection Issues**
+- Verify Azure PostgreSQL credentials
+- Check network connectivity and firewall rules
+- Ensure pgvector extension is installed
+
+**Document Processing Fails**  
+- Check HuggingFace token validity
+- Verify supported document formats
+- Monitor disk space for converted documents
+
+**Agent Responses Empty**
+- Confirm Azure OpenAI deployment is active
+- Check API key permissions
+- Verify model deployment name matches configuration
+
+### Getting Help
+
+- Check the [API documentation](http://localhost:8000/docs)
+- Review logs in development mode
+- Open an issue on GitHub

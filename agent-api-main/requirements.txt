@@ -73,3 +73,37 @@ uvloop==0.21.0
 watchfiles==1.0.5
 websockets==15.0.1
 yfinance==0.2.59
+# requirements.txt
+# Core framework and API
+agno>=1.4.6
+fastapi[standard]>=0.115.0
+uvicorn[standard]>=0.34.0
+
+# Configuration and environment
+python-dotenv>=1.0.0
+pydantic>=2.11.0
+pydantic-settings>=2.9.0
+
+# File handling and processing
+python-multipart>=0.0.20
+docling>=2.0.0
+
+# Machine learning and embeddings
+transformers>=4.40.0
+torch>=2.0.0
+sentence-transformers>=2.7.0
+
+# Database and vector storage
+pgvector>=0.4.0
+psycopg[binary]>=3.2.0
+sqlalchemy>=2.0.0
+
+# HTTP client for external APIs
+requests>=2.32.0
+
+# Optional production server
+gunicorn>=21.2.0
+
+# Performance improvements (optional)
+uvloop>=0.19.0; sys_platform != "win32"
+httptools>=0.6.0
