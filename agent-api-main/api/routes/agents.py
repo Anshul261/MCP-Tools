@@ -14,6 +14,7 @@ from agents.selector import (
     get_agent_info,
     list_all_agents_info
 )
+from core.detailed_response import stream_detailed_agent_response, stream_simple_agent_response
 
 logger = logging.getLogger(__name__)
 
@@ -27,6 +28,7 @@ class ChatRequest(BaseModel):
     session_id: Optional[str] = None
     stream: bool = True
     debug_mode: bool = False
+    detailed_breakdown: bool = True  # Enable detailed breakdown by default
 
 
 class ChatResponse(BaseModel):
@@ -87,36 +89,41 @@ async def get_agent_details(agent_id: str):
     return info
 
 
-async def stream_agent_response(agent, message: str, agent_id: str) -> AsyncGenerator[str, None]:
+async def stream_agent_response(
+    agent, 
+    message: str, 
+    agent_id: str, 
+    detailed_breakdown: bool = True,
+    user_id: str = "default_user",
+    session_id: str = None
+) -> AsyncGenerator[str, None]:
     """
-    Stream agent responses chunk by chunk.
+    Stream agent responses with optional detailed breakdown.
     
     Args:
         agent: The agent or team instance
         message: User message to process
         agent_id: Agent identifier for logging
+        detailed_breakdown: Whether to include detailed breakdown
+        user_id: User identifier
+        session_id: Session identifier
         
     Yields:
         Text chunks from the agent response in SSE format
     """
     try:
-        logger.info(f"Starting streaming response for agent {agent_id}")
+        logger.info(f"Starting streaming response for agent {agent_id}, detailed={detailed_breakdown}")
         
-        # Get response from agent
-        if hasattr(agent, 'arun'):
-            run_response = await agent.arun(message, stream=True)
+        if detailed_breakdown:
+            # Use detailed breakdown streaming
+            async for chunk in stream_detailed_agent_response(agent, message, agent_id, user_id, session_id):
+                yield f"data: {chunk}\n\n"
         else:
-            # Fallback for synchronous agents
-            run_response = agent.run(message, stream=True)
+            # Use simple streaming (original behavior)
+            async for chunk in stream_simple_agent_response(agent, message, agent_id):
+                yield f"data: {chunk}\n\n"
         
-        # Stream the response
-        chunk_count = 0
-        async for chunk in run_response:
-            if hasattr(chunk, 'content') and chunk.content:
-                chunk_count += 1
-                yield f"data: {chunk.content}\n\n"
-        
-        logger.info(f"Completed streaming response for agent {agent_id}, {chunk_count} chunks sent")
+        logger.info(f"Completed streaming response for agent {agent_id}")
         yield "data: [DONE]\n\n"
         
     except Exception as e:
@@ -161,7 +168,14 @@ async def chat_with_agent(agent_id: str, request: ChatRequest):
         if request.stream:
             # Return streaming response
             return StreamingResponse(
-                stream_agent_response(agent, request.message, agent_id),
+                stream_agent_response(
+                    agent, 
+                    request.message, 
+                    agent_id,
+                    request.detailed_breakdown,
+                    request.user_id,
+                    session_id
+                ),
                 media_type="text/event-stream",
                 headers={
                     "Cache-Control": "no-cache",

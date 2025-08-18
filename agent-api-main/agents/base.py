@@ -73,7 +73,6 @@ class BaseAgentFactory(ABC):
             "num_history_runs": 6,
             "show_tool_calls": True,
             "markdown": True,
-            "add_datetime_to_instructions": True,
             "debug_mode": debug_mode,
         }
 
