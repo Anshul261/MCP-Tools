@@ -281,8 +281,9 @@ POST /v1/agents/{agent_id}/chat
   "message": "What is artificial intelligence?",
   "user_id": "user123",
   "session_id": "session_456", 
-  "stream": false,
-  "debug_mode": false
+  "stream": true,
+  "debug_mode": false,
+  "detailed_breakdown": true
 }
 ```
 
@@ -296,7 +297,19 @@ POST /v1/agents/{agent_id}/chat
 }
 ```
 
-**Response (Streaming):**
+**Response (Streaming with Detailed Breakdown):**
+```
+data: RunResponseStartedEvent(created_at=1755518780, event='RunStarted', agent_id='doc_agent', agent_name='Document Agent', run_id='b12388dc-666b-424a-95d4-03f654d37e68', session_id='test_1755518780', team_session_id=None, tools=None, content=None, model='gpt-4.1-mini', model_provider='Azure')
+data: ToolCallStartedEvent(created_at=1755518783, event='ToolCallStarted', agent_id='doc_agent', agent_name='Document Agent', run_id='b12388dc-666b-424a-95d4-03f654d37e68', session_id='test_1755518780', team_session_id=None, tools=None, content=None, tool=ToolExecution(tool_call_id='call_HjYQgJO0KYVVi1ZXOwIXa9sr', tool_name='search_knowledge_base', tool_args={'query': 'artificial intelligence'}, tool_call_error=None, result=None))
+data: search_knowledge_base(query=artificial intelligence) completed in 2.5s.
+data: RunResponseContentEvent(...) 
+data: Artificial intelligence (AI) refers to computer systems that can perform tasks typically requiring human intelligence...
+data: MemoryUpdateStartedEvent(...)
+data: MemoryUpdateCompletedEvent(...)
+data: [DONE]
+```
+
+**Response (Simple Streaming):**
 ```
 data: Artificial intelligence
 data: (AI) refers to

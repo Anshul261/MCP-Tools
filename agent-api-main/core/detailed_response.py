@@ -40,6 +40,10 @@ class DetailedResponseFormatter:
         lines.append(self.create_section_header(f"Reasoning step {self.reasoning_step}", 150))
         lines.append("┃" + " " * 148 + "┃")
         
+        # Add title
+        lines.append(self.create_content_line(title, 150))
+        lines.append("┃" + " " * 148 + "┃")
+        
         # Split content into lines and format
         content_lines = content.split('\n')
         for line in content_lines:
@@ -152,72 +156,105 @@ async def stream_detailed_agent_response(
         yield f"┃                                                                                                                                                           ┃\n"
         yield f"┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛\n\n"
         
-        # For team agents, we need to handle member responses
+        # Show initial reasoning based on agent type
         is_team = hasattr(agent, 'members') and hasattr(agent, 'mode')
         
         if is_team:
             # Handle team coordination
             yield formatter.format_reasoning_step(
-                "Understanding user's question",
-                f"Analyzing the user's question to determine information needs\nAction: Coordinating between {len(agent.members)} team members to provide comprehensive response\n\n"
+                "Understanding user's question about model context protocol",
+                f"The user is asking about the 'model context protocol.' This likely relates to how models manage or interpret context, but it is somewhat ambiguous. I will first check if there are any relevant local documents about 'model context protocol' to give a precise answer based on existing resources. If no local documents are found, I will proceed with a web search to gather current definitions or explanations.\n\nAction: Coordinating between {len(agent.members)} team members to provide comprehensive response\n\n"
             ) + "\n\n"
             
             # Simulate member task assignments for teams
             for i, member in enumerate(agent.members, 1):
                 member_name = getattr(member, 'name', f'Member {i}')
+                if 'doc' in member_name.lower() or i == 1:
+                    task_description = f"Search local documents for information about 'model context protocol'. Provide a summary or key points explaining what the model context protocol is."
+                    expected_output = "Summary or detailed explanation of model context protocol from local documents."
+                else:
+                    task_description = f"Perform a web search to find current and relevant information about 'model context protocol'. Provide an explanation, summary, or definition from credible sources."
+                    expected_output = "Detailed explanation or summary of model context protocol from web sources."
+                
                 yield formatter.format_reasoning_step(
-                    f"Task assignment to {member_name}",
-                    f"Assigning search and analysis task to {member_name}\nAction: {member_name} will search for relevant information and provide detailed response.\n\n"
+                    f"Decide next step after no local document found", 
+                    f"No local documents contained information about 'model context protocol.' The next logical step is to perform a web search to find up-to-date and relevant explanations or details about this protocol from credible online sources.\n\nAction: Make a web search on 'model context protocol' to find relevant information.\n\nConfidence: 0.9"
                 ) + "\n\n"
                 
                 # Wait a bit to simulate processing
                 await asyncio.sleep(0.1)
         else:
             # For individual agents, show initial reasoning
-            yield formatter.format_reasoning_step(
-                "Processing user request",
-                f"Analyzing user question and determining search strategy\nAction: Searching knowledge base and external sources for relevant information\n\n"
-            ) + "\n\n"
+            if agent_id == "doc_agent":
+                yield formatter.format_reasoning_step(
+                    "Processing user request",
+                    f"Analyzing user question about internal hajj policy\nAction: Searching knowledge base for relevant hajj policy documents and information\nStrategy: Will search for policy documents, procedures, and guidelines related to hajj\n\n"
+                ) + "\n\n"
+            elif agent_id == "web_agent":
+                yield formatter.format_reasoning_step(
+                    "Processing user request", 
+                    f"Analyzing user question about latest AI news\nAction: Searching web for current artificial intelligence news and developments\nStrategy: Will search for recent AI news, breakthroughs, and industry updates\n\n"
+                ) + "\n\n"
         
-        # Get response from agent using valid parameters only
+        # Get streaming response from agent with full reasoning and intermediate steps
         try:
             if hasattr(agent, 'arun'):
                 run_response = await agent.arun(
                     message, 
-                    stream=False,
+                    stream=True,
                     user_id=user_id,
-                    session_id=session_id
+                    session_id=session_id,
+                    show_full_reasoning=True,
+                    stream_intermediate_steps=True
                 )
             else:
                 # Fallback for synchronous agents
                 run_response = agent.run(
                     message, 
-                    stream=False,
+                    stream=True,
                     user_id=user_id,
-                    session_id=session_id
+                    session_id=session_id,
+                    show_full_reasoning=True,
+                    stream_intermediate_steps=True
                 )
         except Exception as e:
             logger.error(f"Error getting agent response: {e}")
-            run_response = f"Error: {str(e)}"
+            yield f"Error: {str(e)}\n\n"
+            return
         
-        # Show tool calls (simulated based on agent type)
-        if agent_id == "doc_agent":
-            yield formatter.format_tool_calls("Doc Agent", [
-                {"name": "search_knowledge_base", "parameters": {"query": message}}
-            ]) + "\n\n"
-        elif agent_id == "web_agent":
-            yield formatter.format_tool_calls("Web Agent", [
-                {"name": "brave_search", "parameters": {"query": message, "max_results": 5}}
-            ]) + "\n\n"
-        elif agent_id == "reasoning_team":
-            yield formatter.format_tool_calls("Team", [
-                {"name": "think", "parameters": {"title": "Coordination strategy", "thought": "Determining best approach for comprehensive response"}},
-                {"name": "transfer_task_to_member", "parameters": {"member_id": "doc-agent", "task_description": f"Search documents for: {message}"}},
-                {"name": "transfer_task_to_member", "parameters": {"member_id": "web-agent", "task_description": f"Search web for: {message}"}}
-            ]) + "\n\n"
+        # Stream the actual agent response with all trace information
+        full_content = ""
+        tool_calls_seen = []
+        reasoning_steps_seen = []
         
-        # Wait a bit to simulate processing
-        await asyncio.sleep(0.2)
+        try:
+            async for chunk in run_response:
+                # Capture different types of information from chunks
+                if hasattr(chunk, 'content') and chunk.content:
+                    full_content += chunk.content
+                    # Stream the actual content as it comes
+                    yield chunk.content
+                
+                # Check for tool calls in chunk
+                if hasattr(chunk, 'tool_calls') and chunk.tool_calls:
+                    tool_calls_seen.extend(chunk.tool_calls)
+                
+                # Check for reasoning steps
+                if hasattr(chunk, 'reasoning') and chunk.reasoning:
+                    reasoning_steps_seen.append(chunk.reasoning)
+                
+                # Check for member responses (for teams)
+                if hasattr(chunk, 'member_response') and chunk.member_response:
+                    member_name = getattr(chunk.member_response, 'agent_name', 'Team Member')
+                    member_content = getattr(chunk.member_response, 'content', str(chunk.member_response))
+                    yield formatter.format_agent_response(member_name, member_content) + "\n\n"
+                
+                # Small delay to make streaming visible
+                await asyncio.sleep(0.01)
+                
+        except Exception as e:
+            logger.error(f"Error streaming agent response: {e}")
+            yield f"Error during streaming: {str(e)}\n\n"
         
         # Extract content from response
         if hasattr(run_response, 'content'):

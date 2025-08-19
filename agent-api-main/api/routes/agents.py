@@ -14,7 +14,7 @@ from agents.selector import (
     get_agent_info,
     list_all_agents_info
 )
-from core.detailed_response import stream_detailed_agent_response, stream_simple_agent_response
+from core.real_detailed_response import stream_real_detailed_agent_response, stream_simple_agent_response_real
 
 logger = logging.getLogger(__name__)
 
@@ -115,12 +115,12 @@ async def stream_agent_response(
         logger.info(f"Starting streaming response for agent {agent_id}, detailed={detailed_breakdown}")
         
         if detailed_breakdown:
-            # Use detailed breakdown streaming
-            async for chunk in stream_detailed_agent_response(agent, message, agent_id, user_id, session_id):
+            # Use detailed breakdown streaming with REAL agent traces
+            async for chunk in stream_real_detailed_agent_response(agent, message, agent_id, user_id, session_id):
                 yield f"data: {chunk}\n\n"
         else:
             # Use simple streaming (original behavior)
-            async for chunk in stream_simple_agent_response(agent, message, agent_id):
+            async for chunk in stream_simple_agent_response_real(agent, message, agent_id):
                 yield f"data: {chunk}\n\n"
         
         logger.info(f"Completed streaming response for agent {agent_id}")
