@@ -86,38 +86,47 @@ async def test_all_agents():
     """Test all available agents with detailed breakdown"""
     
     test_cases = [
-        ("doc_agent", "What policies are available in the documents?"),
+        ("doc_agent", "What is the internal hajj policy?"),
         ("web_agent", "What's the latest news about artificial intelligence?"),
-        ("reasoning_team", "Tell me about machine learning and AI trends"),
+        ("reasoning_team", "Tell me about the model context protocol"),
     ]
     
-    print("🚀 TESTING ALL AGENTS WITH DETAILED BREAKDOWN")
+    print("🚀 TESTING ALL 3 AGENTS WITH DETAILED BREAKDOWN (UI-STYLE LOGS)")
     print("="*100)
     
     # Check API health first
     try:
         async with httpx.AsyncClient(timeout=10.0) as client:
-            health_response = await client.get("http://localhost:8000/health")
+            health_response = await client.get("http://localhost:8000/v1/health")
             if health_response.status_code == 200:
                 print("✅ API server is running and healthy")
+                
+                # Also check available agents
+                agents_response = await client.get("http://localhost:8000/v1/agents")
+                if agents_response.status_code == 200:
+                    available_agents = agents_response.json()
+                    print(f"✅ Available agents: {available_agents}")
+                else:
+                    print(f"⚠️ Could not fetch agents list: {agents_response.status_code}")
             else:
                 print(f"⚠️ API health check returned: {health_response.status_code}")
     except Exception as e:
         print(f"❌ Cannot connect to API server: {e}")
-        print("Please start the server with: cd agent-api-main && python -m uvicorn api.main:app --reload")
+        print("Please start the server with: cd agent-api-main && PYTHONPATH=. python -m uvicorn api.main:app --reload --port 8000")
         return
     
     # Test each agent
     for i, (agent_id, message) in enumerate(test_cases, 1):
-        print(f"\n{'='*20} TEST {i}/{len(test_cases)} {'='*20}")
+        print(f"\n{'='*50} AGENT {i}/3: {agent_id.upper()} {'='*50}")
         await test_agent_detailed_response(agent_id, message, detailed=True)
         
         if i < len(test_cases):
-            print(f"\n⏳ Waiting 3 seconds before next test...")
-            await asyncio.sleep(3)
+            print(f"\n⏳ Waiting 2 seconds before next agent test...")
+            await asyncio.sleep(2)
     
     print(f"\n{'='*100}")
-    print("🎉 All tests completed!")
+    print("🎉 All 3 agents tested successfully!")
+    print("💡 This is how the logs would appear in your perplexity-chat-ui!")
 
 
 async def quick_test():
@@ -138,7 +147,7 @@ async def check_available_agents():
     
     try:
         async with httpx.AsyncClient(timeout=10.0) as client:
-            response = await client.get("http://localhost:8000/agents/info")
+            response = await client.get("http://localhost:8000/v1/agents/info")
             if response.status_code == 200:
                 agents = response.json()
                 print(f"✅ Found {len(agents)} agents:")
@@ -157,26 +166,28 @@ async def check_available_agents():
 def print_usage():
     """Print usage information"""
     print("""
-🧪 Agent API Detailed Breakdown Test Script
+🧪 Agent API Detailed Breakdown Test Script - UI-Style Logs
 
 Usage:
     python test_detailed_breakdown.py [command]
 
 Commands:
-    all        - Test all agents with detailed breakdown (default)
+    all        - Test ALL 3 agents with UI-style detailed breakdown (default)
     quick      - Quick test with reasoning team
     compare    - Compare detailed vs simple response
     agents     - List available agents
     help       - Show this help
 
 Examples:
-    python test_detailed_breakdown.py
-    python test_detailed_breakdown.py quick
-    python test_detailed_breakdown.py compare
-    python test_detailed_breakdown.py agents
+    python test_detailed_breakdown.py              # Test all 3 agents
+    python test_detailed_breakdown.py quick        # Quick single test
+    python test_detailed_breakdown.py compare      # Compare formats
+    python test_detailed_breakdown.py agents       # List agents
 
 Make sure the agent-api server is running:
-    cd agent-api-main && python -m uvicorn api.main:app --reload --port 8000
+    cd agent-api-main && PYTHONPATH=. python -m uvicorn api.main:app --reload --port 8000
+    
+This will show you the SAME detailed logs as your multi-agent-system.py but through the API!
     """)
 
 
