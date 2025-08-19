@@ -8,17 +8,17 @@ interface ChatState {
   sessions: Session[]
   settings: ChatSettings
   isLoading: boolean
-  isRecording: boolean
   
   // Actions
   createSession: () => void
   deleteSession: (sessionId: string) => void
   setCurrentSession: (session: Session) => void
   addMessage: (message: Omit<Message, 'id' | 'timestamp'>) => void
-  sendMessage: (content: string, files?: File[]) => Promise<void>
+  updateLastMessage: (content: string) => void
+  sendMessage: (content: string) => Promise<void>
+  sendMessageStream: (content: string) => Promise<void>
   updateSettings: (settings: Partial<ChatSettings>) => void
   setLoading: (loading: boolean) => void
-  setRecording: (recording: boolean) => void
   clearCurrentSession: () => void
 }
 
@@ -28,17 +28,19 @@ export const useChatStore = create<ChatState>()(
       currentSession: null,
       sessions: [],
       settings: {
-        model: 'gpt-4',
-        searchMode: 'both',
+        agent: 'reasoning_team',
         temperature: 0.7,
+        detailed_breakdown: true,
       },
       isLoading: false,
-      isRecording: false,
 
       createSession: () => {
         const now = new Date()
+        // Use agent-api-main compatible session ID format
+        const sessionId = `session_${now.getFullYear()}${(now.getMonth() + 1).toString().padStart(2, '0')}${now.getDate().toString().padStart(2, '0')}_${now.getHours().toString().padStart(2, '0')}${now.getMinutes().toString().padStart(2, '0')}${now.getSeconds().toString().padStart(2, '0')}_${generateId().slice(0, 8)}`
+        
         const newSession: Session = {
-          id: generateId(),
+          id: sessionId,
           title: 'New Chat',
           messages: [],
           createdAt: now,
@@ -93,7 +95,40 @@ export const useChatStore = create<ChatState>()(
         })
       },
 
-      sendMessage: async (content: string, files?: File[]) => {
+      updateLastMessage: (content: string) => {
+        set(state => {
+          if (!state.currentSession || state.currentSession.messages.length === 0) return state
+
+          const messages = [...state.currentSession.messages]
+          const lastMessage = messages[messages.length - 1]
+          
+          messages[messages.length - 1] = {
+            ...lastMessage,
+            content: content,
+            timestamp: new Date(),
+          }
+
+          const updatedSession: Session = {
+            ...state.currentSession,
+            messages,
+            updatedAt: new Date(),
+          }
+
+          return {
+            currentSession: updatedSession,
+            sessions: state.sessions.map(s => 
+              s.id === updatedSession.id ? updatedSession : s
+            ),
+          }
+        })
+      },
+
+      sendMessage: async (content: string) => {
+        // Use streaming by default for better UX
+        return get().sendMessageStream(content)
+      },
+
+      sendMessageStream: async (content: string) => {
         const state = get()
         
         if (!state.currentSession) {
@@ -104,47 +139,78 @@ export const useChatStore = create<ChatState>()(
         const userMessage: Omit<Message, 'id' | 'timestamp'> = {
           content,
           role: 'user',
-          files: files ? files.map(file => ({
-            id: generateId(),
-            name: file.name,
-            size: file.size,
-            type: file.type,
-            url: URL.createObjectURL(file)
-          })) : undefined,
         }
 
         state.addMessage(userMessage)
         state.setLoading(true)
 
+        // Add empty AI message that will be updated with streaming content
+        const aiMessage: Omit<Message, 'id' | 'timestamp'> = {
+          content: '',
+          role: 'assistant',
+        }
+        state.addMessage(aiMessage)
+
         try {
           // Import API client dynamically to avoid issues
           const { apiClient } = await import('@/lib/api')
           
-          // Send message to API
-          const response = await apiClient.sendMessage({
+          // Send message to agent with streaming
+          const stream = await apiClient.sendMessageStream(state.settings.agent, {
             message: content,
+            user_id: 'default_user', // TODO: Get from auth
             session_id: state.currentSession?.id,
-            model: state.settings.model,
-            search_mode: state.settings.searchMode,
-            files: files,
+            stream: true,
+            debug_mode: false,
+            detailed_breakdown: state.settings.detailed_breakdown,
           })
 
-          // Add AI response
-          const aiMessage: Omit<Message, 'id' | 'timestamp'> = {
-            content: response.message,
-            role: 'assistant',
-          }
+          if (stream) {
+            const reader = stream.getReader()
+            const decoder = new TextDecoder()
+            let accumulatedContent = ''
 
-          state.addMessage(aiMessage)
-        } catch (error) {
-          console.error('Failed to send message:', error)
-          
-          // Add error message
-          const errorMessage: Omit<Message, 'id' | 'timestamp'> = {
-            content: `Sorry, I encountered an error: ${error instanceof Error ? error.message : 'Unknown error'}`,
-            role: 'assistant',
+            while (true) {
+              const { done, value } = await reader.read()
+              if (done) break
+
+              const chunk = decoder.decode(value, { stream: true })
+              const lines = chunk.split('\n')
+
+              for (const line of lines) {
+                if (line.startsWith('data: ')) {
+                  const data = line.slice(6).trim()
+                  if (data === '[DONE]') {
+                    break
+                  }
+                  
+                  // For simple streaming, just accumulate the text
+                  // For detailed breakdown, we'd need to parse JSON events
+                  if (data && !data.startsWith('{')) {
+                    accumulatedContent += data
+                    state.updateLastMessage(accumulatedContent)
+                  } else if (data.startsWith('{')) {
+                    // Handle detailed breakdown JSON events
+                    try {
+                      // Skip detailed events for now, just get the content
+                      if (data.includes('"content"') && !data.includes('"event"')) {
+                        accumulatedContent += data
+                        state.updateLastMessage(accumulatedContent)
+                      }
+                    } catch (e) {
+                      // Skip invalid JSON
+                    }
+                  }
+                }
+              }
+            }
           }
-          state.addMessage(errorMessage)
+        } catch (error) {
+          console.error('Failed to send streaming message:', error)
+          
+          // Update the last message with error
+          const errorContent = `Sorry, I encountered an error: ${error instanceof Error ? error.message : 'Unknown error'}`
+          state.updateLastMessage(errorContent)
         } finally {
           state.setLoading(false)
         }
@@ -158,10 +224,6 @@ export const useChatStore = create<ChatState>()(
 
       setLoading: (loading: boolean) => {
         set({ isLoading: loading })
-      },
-
-      setRecording: (recording: boolean) => {
-        set({ isRecording: recording })
       },
 
       clearCurrentSession: () => {

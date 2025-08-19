@@ -3,16 +3,6 @@ export interface Message {
   content: string
   role: 'user' | 'assistant'
   timestamp: Date
-  files?: FileAttachment[]
-  isVoice?: boolean
-}
-
-export interface FileAttachment {
-  id: string
-  name: string
-  size: number
-  type: string
-  url: string
 }
 
 export interface Session {
@@ -30,11 +20,17 @@ export interface User {
   avatar?: string
 }
 
-export type SearchMode = 'online' | 'local' | 'both'
-export type ModelType = 'gpt-4' | 'claude-3' | 'gemini-pro' | 'local-llm'
+export type AgentType = 'doc_agent' | 'web_agent' | 'reasoning_team'
+
+export interface AgentInfo {
+  id: string
+  name: string
+  description: string
+  type: string
+}
 
 export interface ChatSettings {
-  model: ModelType
-  searchMode: SearchMode
+  agent: AgentType
   temperature: number
+  detailed_breakdown: boolean
 }

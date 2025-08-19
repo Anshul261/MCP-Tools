@@ -5,7 +5,7 @@ import { useChatStore } from '@/store/chat-store'
 import Sidebar from '@/components/chat/sidebar'
 import Message from '@/components/chat/message'
 import ChatInput from '@/components/chat/chat-input'
-import ModelSelector from '@/components/chat/model-selector'
+import AgentSelector from '@/components/chat/model-selector'
 import { Button } from '@/components/ui/button'
 import { SparklesIcon, MessageSquareIcon } from 'lucide-react'
 
@@ -38,7 +38,7 @@ export default function ChatPage() {
               </div>
             </div>
             <div className="w-64">
-              <ModelSelector />
+              <AgentSelector />
             </div>
           </div>
         </div>
