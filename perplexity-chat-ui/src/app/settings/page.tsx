@@ -38,11 +38,11 @@ export default function SettingsPage() {
       ]
     },
     {
-      title: 'AI & Models',
+      title: 'AI & Agents',
       icon: <BrainIcon className="h-5 w-5" />,
       items: [
-        { label: 'Default Model', value: settings.model, type: 'select' },
-        { label: 'Search Mode', value: settings.searchMode, type: 'select' },
+        { label: 'Default Agent', value: settings.agent, type: 'select' },
+        { label: 'Detailed Breakdown', value: settings.detailed_breakdown, type: 'toggle' },
         { label: 'Temperature', value: settings.temperature, type: 'slider' },
       ]
     },
@@ -165,6 +165,8 @@ export default function SettingsPage() {
                               setNotifications(!notifications)
                             } else if (item.label === 'Sound Effects') {
                               setSoundEnabled(!soundEnabled)
+                            } else if (item.label === 'Detailed Breakdown') {
+                              updateSettings({ detailed_breakdown: !settings.detailed_breakdown })
                             }
                           }}
                           className={`w-12 h-6 rounded-full transition-colors ${
@@ -194,7 +196,7 @@ export default function SettingsPage() {
                             min="0"
                             max="1"
                             step="0.1"
-                            value={item.value}
+                            value={typeof item.value === 'number' ? item.value : 0}
                             onChange={(e) => updateSettings({ temperature: parseFloat(e.target.value) })}
                             className="w-full h-2 bg-border rounded-lg appearance-none cursor-pointer"
                           />

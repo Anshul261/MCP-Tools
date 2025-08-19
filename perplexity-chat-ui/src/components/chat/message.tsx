@@ -36,9 +36,6 @@ export default function Message({ message }: MessageProps) {
           <span className="font-medium text-foreground">
             {isUser ? 'You' : 'Assistant'}
           </span>
-          {message.isVoice && (
-            <VolumeXIcon className="h-4 w-4 text-primary" />
-          )}
           <span className="text-xs text-foreground-muted">
             {message.timestamp ? formatDate(message.timestamp) : 'Now'}
           </span>
@@ -49,31 +46,6 @@ export default function Message({ message }: MessageProps) {
           <p className="whitespace-pre-wrap">{message.content}</p>
         </div>
 
-        {/* File Attachments */}
-        {message.files && message.files.length > 0 && (
-          <div className="mt-3 space-y-2">
-            {message.files.map((file) => (
-              <div
-                key={file.id}
-                className="flex items-center gap-2 p-2 bg-accent rounded-lg"
-              >
-                <div className="w-8 h-8 bg-primary/20 rounded flex items-center justify-center">
-                  <span className="text-xs font-medium text-primary">
-                    {file.name.split('.').pop()?.toUpperCase()}
-                  </span>
-                </div>
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium text-foreground truncate">
-                    {file.name}
-                  </p>
-                  <p className="text-xs text-foreground-muted">
-                    {(file.size / 1024).toFixed(1)} KB
-                  </p>
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
       </div>
     </div>
   )

@@ -3,75 +3,45 @@
 import { useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { useChatStore } from '@/store/chat-store'
-import { SearchMode, ModelType } from '@/types'
+import { AgentType } from '@/types'
 import { 
   ChevronDownIcon,
   GlobeIcon,
-  HardDriveIcon,
-  CombineIcon,
+  FileTextIcon,
   BrainIcon,
-  ZapIcon,
-  SparklesIcon
+  SettingsIcon
 } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
 
-export default function ModelSelector() {
+export default function AgentSelector() {
   const [isOpen, setIsOpen] = useState(false)
   const { settings, updateSettings } = useChatStore()
 
-  const models: { id: ModelType; name: string; icon: React.ReactNode; gradient: string }[] = [
+  const agents: { id: AgentType; name: string; icon: React.ReactNode; description: string; gradient: string }[] = [
     { 
-      id: 'gpt-4', 
-      name: 'GPT-4', 
+      id: 'doc_agent', 
+      name: 'Document Agent', 
+      icon: <FileTextIcon className="h-4 w-4" />, 
+      description: 'RAG Assistant with local document search capabilities',
+      gradient: 'from-emerald-500 to-green-600' 
+    },
+    { 
+      id: 'web_agent', 
+      name: 'Web Agent', 
+      icon: <GlobeIcon className="h-4 w-4" />, 
+      description: 'Web search agent that helps users find the latest news and information',
+      gradient: 'from-blue-500 to-cyan-600' 
+    },
+    { 
+      id: 'reasoning_team', 
+      name: 'Reasoning Team', 
       icon: <BrainIcon className="h-4 w-4" />, 
-      gradient: 'from-blue-500 to-purple-600' 
-    },
-    { 
-      id: 'claude-3', 
-      name: 'Claude 3', 
-      icon: <SparklesIcon className="h-4 w-4" />, 
-      gradient: 'from-orange-500 to-pink-600' 
-    },
-    { 
-      id: 'gemini-pro', 
-      name: 'Gemini Pro', 
-      icon: <ZapIcon className="h-4 w-4" />, 
-      gradient: 'from-green-500 to-teal-600' 
-    },
-    { 
-      id: 'local-llm', 
-      name: 'Local LLM', 
-      icon: <HardDriveIcon className="h-4 w-4" />, 
-      gradient: 'from-gray-500 to-slate-600' 
-    },
+      description: 'Team that coordinates between document search and web search to provide comprehensive answers',
+      gradient: 'from-purple-500 to-pink-600' 
+    }
   ]
 
-  const searchModes: { id: SearchMode; name: string; icon: React.ReactNode; description: string; gradient: string }[] = [
-    { 
-      id: 'online', 
-      name: 'Online Search', 
-      icon: <GlobeIcon className="h-4 w-4" />,
-      description: 'Search the web for latest information',
-      gradient: 'from-blue-400 to-cyan-500'
-    },
-    { 
-      id: 'local', 
-      name: 'Local Knowledge', 
-      icon: <HardDriveIcon className="h-4 w-4" />,
-      description: 'Use local documents and knowledge base',
-      gradient: 'from-emerald-400 to-green-500'
-    },
-    { 
-      id: 'both', 
-      name: 'Combined Search', 
-      icon: <CombineIcon className="h-4 w-4" />,
-      description: 'Search both online and local sources',
-      gradient: 'from-purple-400 to-pink-500'
-    },
-  ]
-
-  const currentModel = models.find(m => m.id === settings.model)
-  const currentSearchMode = searchModes.find(s => s.id === settings.searchMode)
+  const currentAgent = agents.find(a => a.id === settings.agent)
 
   return (
     <div className="relative">
@@ -83,7 +53,7 @@ export default function ModelSelector() {
         <Button
           variant="outline"
           onClick={() => setIsOpen(!isOpen)}
-          className={`w-full justify-between bg-gradient-to-r ${currentModel?.gradient || 'from-background to-background-secondary'} border-border/50 backdrop-blur-sm hover:shadow-lg transition-all duration-300 relative overflow-hidden`}
+          className={`w-full justify-between bg-gradient-to-r ${currentAgent?.gradient || 'from-background to-background-secondary'} border-border/50 backdrop-blur-sm hover:shadow-lg transition-all duration-300 relative overflow-hidden`}
         >
           {/* Animated background overlay */}
           <motion.div
@@ -102,17 +72,21 @@ export default function ModelSelector() {
               animate={{ rotate: isOpen ? 360 : 0 }}
               transition={{ duration: 0.3 }}
             >
-              {currentModel?.icon}
+              {currentAgent?.icon}
             </motion.div>
-            <span className="text-sm font-medium text-white drop-shadow-sm">{currentModel?.name}</span>
-            <span className="text-xs text-white/70">•</span>
-            <motion.div
-              animate={{ rotate: isOpen ? 180 : 0 }}
-              transition={{ duration: 0.3 }}
-            >
-              {currentSearchMode?.icon}
-            </motion.div>
-            <span className="text-xs text-white/80">{currentSearchMode?.name}</span>
+            <span className="text-sm font-medium text-white drop-shadow-sm">{currentAgent?.name}</span>
+            {settings.detailed_breakdown && (
+              <>
+                <span className="text-xs text-white/70">•</span>
+                <motion.div
+                  animate={{ rotate: isOpen ? 180 : 0 }}
+                  transition={{ duration: 0.3 }}
+                >
+                  <SettingsIcon className="h-3 w-3" />
+                </motion.div>
+                <span className="text-xs text-white/80">Detailed</span>
+              </>
+            )}
           </div>
           <motion.div
             animate={{ rotate: isOpen ? 180 : 0 }}
@@ -132,7 +106,7 @@ export default function ModelSelector() {
             transition={{ duration: 0.2, ease: "easeOut" }}
             className="absolute top-full left-0 right-0 mt-2 bg-gradient-to-b from-background-secondary to-background border border-border/50 rounded-xl shadow-2xl backdrop-blur-sm z-50 overflow-hidden"
           >
-            {/* Model Selection */}
+            {/* Agent Selection */}
             <motion.div
               initial={{ opacity: 0, y: -20 }}
               animate={{ opacity: 1, y: 0 }}
@@ -140,117 +114,55 @@ export default function ModelSelector() {
               className="p-4 border-b border-border/30"
             >
               <h3 className="text-sm font-semibold text-foreground mb-3 bg-gradient-to-r from-foreground to-foreground-secondary bg-clip-text text-transparent">
-                AI Model
+                AI Agent
               </h3>
               <div className="space-y-2">
-                {models.map((model, index) => (
+                {agents.map((agent, index) => (
                   <motion.button
-                    key={model.id}
+                    key={agent.id}
                     initial={{ opacity: 0, x: -20 }}
                     animate={{ opacity: 1, x: 0 }}
                     transition={{ duration: 0.2, delay: index * 0.05 }}
                     onClick={() => {
-                      updateSettings({ model: model.id })
-                    }}
-                    whileHover={{ scale: 1.02, x: 4 }}
-                    whileTap={{ scale: 0.98 }}
-                    className={`w-full flex items-center gap-3 p-3 rounded-lg transition-all duration-200 relative overflow-hidden group ${
-                      settings.model === model.id 
-                        ? `bg-gradient-to-r ${model.gradient} text-white shadow-lg` 
-                        : 'hover:bg-gradient-to-r hover:from-accent/50 hover:to-accent/20 text-foreground'
-                    }`}
-                  >
-                    {settings.model === model.id && (
-                      <motion.div
-                        layoutId="model-selection"
-                        className="absolute inset-0 bg-gradient-to-r from-white/20 to-white/10 rounded-lg"
-                        transition={{ duration: 0.3, ease: "easeInOut" }}
-                      />
-                    )}
-                    <motion.div
-                      animate={{ 
-                        rotate: settings.model === model.id ? [0, 360] : 0,
-                        scale: settings.model === model.id ? [1, 1.2, 1] : 1
-                      }}
-                      transition={{ 
-                        duration: settings.model === model.id ? 0.6 : 0.2,
-                        ease: "easeInOut"
-                      }}
-                      className="relative z-10"
-                    >
-                      {model.icon}
-                    </motion.div>
-                    <span className="text-sm font-medium relative z-10">{model.name}</span>
-                    {settings.model === model.id && (
-                      <motion.div
-                        initial={{ scale: 0, opacity: 0 }}
-                        animate={{ scale: 1, opacity: 1 }}
-                        className="ml-auto w-2 h-2 bg-white rounded-full relative z-10"
-                      />
-                    )}
-                  </motion.button>
-                ))}
-              </div>
-            </motion.div>
-
-            {/* Search Mode Selection */}
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.3, delay: 0.2 }}
-              className="p-4"
-            >
-              <h3 className="text-sm font-semibold text-foreground mb-3 bg-gradient-to-r from-foreground to-foreground-secondary bg-clip-text text-transparent">
-                Search Mode
-              </h3>
-              <div className="space-y-2">
-                {searchModes.map((mode, index) => (
-                  <motion.button
-                    key={mode.id}
-                    initial={{ opacity: 0, x: -20 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    transition={{ duration: 0.2, delay: index * 0.05 }}
-                    onClick={() => {
-                      updateSettings({ searchMode: mode.id })
-                      setIsOpen(false)
+                      updateSettings({ agent: agent.id })
                     }}
                     whileHover={{ scale: 1.02, x: 4 }}
                     whileTap={{ scale: 0.98 }}
                     className={`w-full flex items-start gap-3 p-3 rounded-lg transition-all duration-200 relative overflow-hidden group ${
-                      settings.searchMode === mode.id 
-                        ? `bg-gradient-to-r ${mode.gradient} text-white shadow-lg` 
+                      settings.agent === agent.id 
+                        ? `bg-gradient-to-r ${agent.gradient} text-white shadow-lg` 
                         : 'hover:bg-gradient-to-r hover:from-accent/50 hover:to-accent/20 text-foreground'
                     }`}
                   >
-                    {settings.searchMode === mode.id && (
+                    {settings.agent === agent.id && (
                       <motion.div
-                        layoutId="search-selection"
+                        layoutId="agent-selection"
                         className="absolute inset-0 bg-gradient-to-r from-white/20 to-white/10 rounded-lg"
                         transition={{ duration: 0.3, ease: "easeInOut" }}
                       />
                     )}
                     <motion.div
                       animate={{ 
-                        rotate: settings.searchMode === mode.id ? [0, 360] : 0,
-                        scale: settings.searchMode === mode.id ? [1, 1.2, 1] : 1
+                        rotate: settings.agent === agent.id ? [0, 360] : 0,
+                        scale: settings.agent === agent.id ? [1, 1.2, 1] : 1
                       }}
                       transition={{ 
-                        duration: settings.searchMode === mode.id ? 0.6 : 0.2,
+                        duration: settings.agent === agent.id ? 0.6 : 0.2,
                         ease: "easeInOut"
                       }}
                       className="shrink-0 mt-0.5 relative z-10"
                     >
-                      {mode.icon}
+                      {agent.icon}
                     </motion.div>
                     <div className="flex-1 text-left relative z-10">
-                      <div className="text-sm font-medium">{mode.name}</div>
+                      <div className="text-sm font-medium">{agent.name}</div>
                       <div className={`text-xs mt-1 ${
-                        settings.searchMode === mode.id ? 'text-white/80' : 'text-foreground-muted'
+                        settings.agent === agent.id ? 'text-white/80' : 'text-foreground-muted'
                       }`}>
-                        {mode.description}
+                        {agent.description}
                       </div>
                     </div>
-                    {settings.searchMode === mode.id && (
+                    {settings.agent === agent.id && (
                       <motion.div
                         initial={{ scale: 0, opacity: 0 }}
                         animate={{ scale: 1, opacity: 1 }}
@@ -259,6 +171,69 @@ export default function ModelSelector() {
                     )}
                   </motion.button>
                 ))}
+              </div>
+            </motion.div>
+
+            {/* Settings */}
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.3, delay: 0.2 }}
+              className="p-4"
+            >
+              <h3 className="text-sm font-semibold text-foreground mb-3 bg-gradient-to-r from-foreground to-foreground-secondary bg-clip-text text-transparent">
+                Options
+              </h3>
+              <div className="space-y-2">
+                <motion.button
+                  whileHover={{ scale: 1.02, x: 4 }}
+                  whileTap={{ scale: 0.98 }}
+                  onClick={() => {
+                    updateSettings({ detailed_breakdown: !settings.detailed_breakdown })
+                    setIsOpen(false)
+                  }}
+                  className={`w-full flex items-start gap-3 p-3 rounded-lg transition-all duration-200 relative overflow-hidden group ${
+                    settings.detailed_breakdown 
+                      ? 'bg-gradient-to-r from-amber-400 to-orange-500 text-white shadow-lg' 
+                      : 'hover:bg-gradient-to-r hover:from-accent/50 hover:to-accent/20 text-foreground'
+                  }`}
+                >
+                  {settings.detailed_breakdown && (
+                    <motion.div
+                      layoutId="detailed-selection"
+                      className="absolute inset-0 bg-gradient-to-r from-white/20 to-white/10 rounded-lg"
+                      transition={{ duration: 0.3, ease: "easeInOut" }}
+                    />
+                  )}
+                  <motion.div
+                    animate={{ 
+                      rotate: settings.detailed_breakdown ? [0, 360] : 0,
+                      scale: settings.detailed_breakdown ? [1, 1.2, 1] : 1
+                    }}
+                    transition={{ 
+                      duration: settings.detailed_breakdown ? 0.6 : 0.2,
+                      ease: "easeInOut"
+                    }}
+                    className="shrink-0 mt-0.5 relative z-10"
+                  >
+                    <SettingsIcon className="h-4 w-4" />
+                  </motion.div>
+                  <div className="flex-1 text-left relative z-10">
+                    <div className="text-sm font-medium">Detailed Breakdown</div>
+                    <div className={`text-xs mt-1 ${
+                      settings.detailed_breakdown ? 'text-white/80' : 'text-foreground-muted'
+                    }`}>
+                      Show agent reasoning steps and tool calls
+                    </div>
+                  </div>
+                  {settings.detailed_breakdown && (
+                    <motion.div
+                      initial={{ scale: 0, opacity: 0 }}
+                      animate={{ scale: 1, opacity: 1 }}
+                      className="ml-auto mt-1 w-2 h-2 bg-white rounded-full relative z-10"
+                    />
+                  )}
+                </motion.button>
               </div>
             </motion.div>
           </motion.div>
