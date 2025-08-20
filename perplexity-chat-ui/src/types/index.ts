@@ -3,6 +3,20 @@ export interface Message {
   content: string
   role: 'user' | 'assistant'
   timestamp: Date
+  chainOfThought?: ChainOfThoughtEvent[]
+  agentOutputs?: { [agentId: string]: string }
+}
+
+export interface ChainOfThoughtEvent {
+  type: string
+  event?: string
+  agent_id?: string
+  agent_name?: string
+  tool?: string
+  content?: string
+  timestamp?: string | number
+  duration?: string
+  raw?: string
 }
 
 export interface Session {
