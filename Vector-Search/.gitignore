@@ -24,3 +24,14 @@ uv.lock
 .python-version
 pyproject.toml
 output.txt
+*.csv
+*.xlsx
+*.xls
+*.docx
+*.doc
+*.pptx
+*.ppt
+*.pdf
+*.txt
+*.json
+*.yaml
