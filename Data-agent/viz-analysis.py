@@ -12,7 +12,7 @@ from agno.models.openai import OpenAIChat
 from agno.tools.duckdb import DuckDbTools
 from agno.models.azure import AzureOpenAI
 
-file_path = "jobs_in_data.csv"
+file_path = "Alpha-NOC-Reports-Jan-to-Apr-2025.xlsx"
 
 duckdb_tools = DuckDbTools(
     create_tables=False, export_tables=False, summarize_tables=False
@@ -43,9 +43,24 @@ agent = Agent(
         azure_endpoint=os.getenv("AZURE_OPENAI_ENDPOINT"),
         azure_deployment=os.getenv("AZURE_OPENAI_DEPLOYMENT_NAME"),
     ),
+    enable_user_memories=True,
+    enable_session_summaries=True,
+    enable_agentic_memory=True,
+    add_history_to_messages=True,
+    num_history_runs=6,
+
     tools=[duckdb_tools, python_tools],
     markdown=True,
     show_tool_calls=True,
+    instructions=[
+        'Given a question,'
+        'You have to always query the data first before creating visualizations.',
+        'You have to always use the Python tools to create visualizations.',
+        'You have to always save the visualizations as files that can be viewed.',
+        'You have to always use the DuckDB tools to query the data.',
+        'You have to always use the Python tools to create visualizations.',
+        'If you do not have the data, you have to say so and ask the user for clarification.',
+    ],
     additional_context=dedent("""\
     You have access to the following tables:
     - data: contains information about jobs in data.
