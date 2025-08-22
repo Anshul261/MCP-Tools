@@ -1,0 +1,215 @@
+import json
+
+labels_ticket_type = json.dumps(["Incident", "Service Request", "Preventive Maintenance", "Security Incident", "Request For Information", "Change Requests"])
+data_ticket_type = json.dumps([2245, 2180, 20, 16, 5, 3])
+
+labels_status = json.dumps(["Closed", "Waiting for Customer", "Cancelled", "Waiting for Vendor", "Assigned", "Waiting for parts - NOC", "Onhold", "In Progress", "Open"])
+data_status = json.dumps([4345, 50, 30, 17, 10, 9, 5, 2, 1])
+
+labels_months = json.dumps(["2025-01", "2025-02", "2025-03", "2025-04"])
+data_volumes = json.dumps([1071, 1033, 1127, 1238])
+
+labels_breached = json.dumps(["Not Breached", "Breached"])
+data_breached = json.dumps([4341, 128])
+
+html_content = """
+<!DOCTYPE html>
+<html lang='en'>
+<head>
+<meta charset='UTF-8'/>
+<meta name='viewport' content='width=device-width, initial-scale=1'/>
+<title>Ticket Dashboard</title>
+<style>
+  body {
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    background: #f5f7fa;
+    margin: 0;
+    padding: 20px;
+    color: #333;
+  }
+  .container {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+    gap: 20px;
+  }
+  .card {
+    background: #fff;
+    border-radius: 8px;
+    padding: 20px;
+    box-shadow: 0 2px 6px rgb(0 0 0 / 0.1);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+  }
+  h2 {
+    font-weight: 700;
+    margin-bottom: 10px;
+    color: #2c3e50;
+  }
+  canvas {
+    max-width: 100%;
+    height: 250px !important;
+  }
+  .info-text {
+    font-size: 0.9em;
+    color: #666;
+    margin-top: 10px;
+    max-width: 400px;
+    text-align: center;
+  }
+</style>
+</head>
+<body>
+  <h1 style='text-align:center; color:#34495e;'>Ticket Management Dashboard</h1>
+  <div class='container'>
+    <div class='card'>
+      <h2>Ticket Type Distribution</h2>
+      <canvas id='typePie'></canvas>
+      <canvas id='typeBar'></canvas>
+      <p class='info-text'>Incident and Service Requests dominate ticket types with over 2000 tickets each.</p>
+    </div>
+
+    <div class='card'>
+      <h2>Ticket Status Distribution</h2>
+      <canvas id='statusPie'></canvas>
+      <canvas id='statusBar'></canvas>
+      <p class='info-text'>Most tickets are closed, with a small portion waiting for customer or on hold.</p>
+    </div>
+
+    <div class='card'>
+      <h2>Monthly Ticket Volume</h2>
+      <canvas id='monthlyLine'></canvas>
+      <p class='info-text'>Ticket volume shows a steady increase over the first four months of 2025.</p>
+    </div>
+
+    <div class='card'>
+      <h2>Breached vs Non-Breached Tickets</h2>
+      <canvas id='breachPie'></canvas>
+      <p class='info-text'>Breached tickets make up a small fraction (~3%) of total tickets.</p>
+    </div>
+
+  </div>
+  <script src='https://cdn.jsdelivr.net/npm/chart.js'></script>
+  <script>
+    const palette = [
+      '#3498db', '#2ecc71', '#e74c3c', '#9b59b6', '#f1c40f', '#34495e', '#e67e22', '#1abc9c', '#7f8c8d'
+    ];
+
+    const ticketTypeData = {
+      labels: %s,
+      datasets: [{
+        label: 'Ticket Type Count',
+        data: %s,
+        backgroundColor: palette.slice(0, %d),
+        borderWidth: 1
+      }]
+    };
+
+    const ticketStatusData = {
+      labels: %s,
+      datasets: [{
+        label: 'Ticket Status Count',
+        data: %s,
+        backgroundColor: palette.slice(0, %d),
+        borderWidth: 1
+      }]
+    };
+
+    const monthlyVolumeData = {
+      labels: %s,
+      datasets: [{
+        label: 'Monthly Ticket Volume',
+        data: %s,
+        borderColor: '#2980b9',
+        backgroundColor: 'rgba(41, 128, 185, 0.2)',
+        fill: true,
+        tension: 0.3
+      }]
+    };
+
+    const breachedData = {
+      labels: %s,
+      datasets: [{
+        label: 'Breached vs Non-Breached',
+        data: %s,
+        backgroundColor: [ '#e74c3c', '#2ecc71' ],
+        borderWidth: 1
+      }]
+    };
+
+    const typePieCtx = document.getElementById('typePie').getContext('2d');
+    const typeBarCtx = document.getElementById('typeBar').getContext('2d');
+    const statusPieCtx = document.getElementById('statusPie').getContext('2d');
+    const statusBarCtx = document.getElementById('statusBar').getContext('2d');
+    const monthlyLineCtx = document.getElementById('monthlyLine').getContext('2d');
+    const breachPieCtx = document.getElementById('breachPie').getContext('2d');
+
+    new Chart(typePieCtx, {
+      type: 'pie',
+      data: ticketTypeData,
+      options: {
+        responsive: true
+      }
+    });
+
+    new Chart(typeBarCtx, {
+      type: 'bar',
+      data: ticketTypeData,
+      options: {
+        responsive: true,
+        scales: {
+          y: { beginAtZero: true }
+        }
+      }
+    });
+
+    new Chart(statusPieCtx, {
+      type: 'pie',
+      data: ticketStatusData,
+      options: {
+        responsive: true
+      }
+    });
+
+    new Chart(statusBarCtx, {
+      type: 'bar',
+      data: ticketStatusData,
+      options: {
+        responsive: true,
+        scales: {
+          y: { beginAtZero: true }
+        }
+      }
+    });
+
+    new Chart(monthlyLineCtx, {
+      type: 'line',
+      data: monthlyVolumeData,
+      options: {
+        responsive: true,
+        scales: {
+          y: { beginAtZero: true }
+        }
+      }
+    });
+
+    new Chart(breachPieCtx, {
+      type: 'pie',
+      data: breachedData,
+      options: {
+        responsive: true
+      }
+    });
+  </script>
+</body>
+</html>""" % (
+    labels_ticket_type, data_ticket_type, len(json.loads(labels_ticket_type)),
+    labels_status, data_status, len(json.loads(labels_status)),
+    labels_months, data_volumes,
+    labels_breached, data_breached
+)
+
+with open("output/dashboard.html", "w", encoding="utf-8") as f:
+    f.write(html_content)
+
+"Dashboard saved to output/dashboard.html"
