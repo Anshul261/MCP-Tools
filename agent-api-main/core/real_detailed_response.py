@@ -14,9 +14,9 @@ async def stream_real_detailed_agent_response(
     session_id: str = None
 ) -> AsyncGenerator[str, None]:
     """
-    Stream agent responses following official Agno agent-api standards.
+    Stream agent responses with proper token spacing handling.
     
-    Simple implementation that yields chunk.content directly as per official standards.
+    Fixes token concatenation issues from Agno framework at the API level.
     """
     try:
         logger.info(f"Starting streaming for agent {agent_id}")
@@ -24,13 +24,26 @@ async def stream_real_detailed_agent_response(
         # Get streaming response - use standard Agno arun with stream=True
         run_response = await agent.arun(message, stream=True)
         
-        # Stream each chunk as it comes from the agent (following official standard)
+        # Buffer to handle token spacing properly
+        previous_chunk = ""
+        
+        # Stream each chunk as it comes from the agent
         async for chunk in run_response:
-            # chunk.content only contains the text response from the Agent.
-            # For advanced use cases, we should yield the entire chunk
-            # that contains the tool calls and intermediate steps.
             if hasattr(chunk, 'content') and chunk.content:
-                yield chunk.content
+                content = chunk.content.strip()  # Remove any extra whitespace
+                
+                if content:  # Only process non-empty chunks
+                    # AGGRESSIVE FIX: Add space between all tokens except when:
+                    # - It's the first token
+                    # - Current token starts with punctuation  
+                    # - Previous token ends with whitespace
+                    if previous_chunk:
+                        if (not content.startswith(('.', ',', '!', '?', ';', ':', ')', ']', '}', '"', "'")) and
+                            not previous_chunk.endswith((' ', '\n', '\t', '-', '(', '[', '{'))):
+                            yield ' '
+                    
+                    yield content
+                    previous_chunk = content
         
         logger.info(f"Completed streaming for agent {agent_id}")
         
@@ -41,7 +54,7 @@ async def stream_real_detailed_agent_response(
 
 async def stream_simple_agent_response_real(agent, message: str, agent_id: str) -> AsyncGenerator[str, None]:
     """
-    Stream simple agent responses (original behavior) with word boundary fixes.
+    Stream simple agent responses with proper token spacing.
     """
     try:
         logger.info(f"Starting simple streaming response for agent {agent_id}")
@@ -53,13 +66,26 @@ async def stream_simple_agent_response_real(agent, message: str, agent_id: str) 
             # Fallback for synchronous agents
             run_response = agent.run(message, stream=True)
         
-        # Stream the response
+        # Stream the response with proper spacing
+        previous_chunk = ""
         chunk_count = 0
+        
         if hasattr(run_response, '__aiter__'):
             async for chunk in run_response:
                 if hasattr(chunk, 'content') and chunk.content:
-                    chunk_count += 1
-                    yield chunk.content
+                    content = chunk.content.strip()
+                    
+                    if content:
+                        chunk_count += 1
+                        
+                        # AGGRESSIVE FIX: Add space between all tokens (same as detailed version)
+                        if previous_chunk:
+                            if (not content.startswith(('.', ',', '!', '?', ';', ':', ')', ']', '}', '"', "'")) and
+                                not previous_chunk.endswith((' ', '\n', '\t', '-', '(', '[', '{'))):
+                                yield ' '
+                        
+                        yield content
+                        previous_chunk = content
                 
         else:
             # Handle non-streaming response
