@@ -56,6 +56,7 @@ async def stream_real_detailed_agent_response(
                     
                 # Small delay to make streaming visible
                 await asyncio.sleep(0.01)
+                
         else:
             # Handle non-streaming response
             if hasattr(run_response, 'content'):
@@ -72,7 +73,7 @@ async def stream_real_detailed_agent_response(
 
 async def stream_simple_agent_response_real(agent, message: str, agent_id: str) -> AsyncGenerator[str, None]:
     """
-    Stream simple agent responses (original behavior).
+    Stream simple agent responses (original behavior) with word boundary fixes.
     """
     try:
         logger.info(f"Starting simple streaming response for agent {agent_id}")
@@ -91,6 +92,7 @@ async def stream_simple_agent_response_real(agent, message: str, agent_id: str) 
                 if hasattr(chunk, 'content') and chunk.content:
                     chunk_count += 1
                     yield chunk.content
+                
         else:
             # Handle non-streaming response
             if hasattr(run_response, 'content'):

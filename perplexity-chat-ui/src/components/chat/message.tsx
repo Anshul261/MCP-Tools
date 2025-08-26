@@ -6,11 +6,14 @@ import { formatDate, cn } from '@/lib/utils'
 import { UserIcon, BotIcon, ChevronDownIcon, ChevronRightIcon, ClockIcon, WrenchIcon, BrainIcon, MessageSquareIcon, FileTextIcon, GlobeIcon } from 'lucide-react'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
+import rehypeHighlight from 'rehype-highlight'
 import { motion, AnimatePresence } from 'framer-motion'
+import 'highlight.js/styles/github-dark.css'
 
 interface MessageProps {
   message: MessageType
 }
+
 
 export default function Message({ message }: MessageProps) {
   const isUser = message.role === 'user'
@@ -183,7 +186,7 @@ export default function Message({ message }: MessageProps) {
 
         {/* Agent Response Content */}
         {message.content && (
-          <div className="prose prose-sm max-w-none text-foreground prose-headings:text-foreground prose-strong:text-foreground prose-code:text-foreground prose-pre:bg-muted prose-pre:text-foreground">
+          <div className="max-w-none">
             <div className="border-l-4 border-primary/30 pl-4">
               <h4 className="text-sm font-medium text-primary mb-2 flex items-center gap-2">
                 <MessageSquareIcon className="h-4 w-4" />
@@ -192,62 +195,155 @@ export default function Message({ message }: MessageProps) {
               <div className="space-y-4">
                 <ReactMarkdown 
                   remarkPlugins={[remarkGfm]}
+                  rehypePlugins={[rehypeHighlight]}
                   components={{
-                    // Custom components for better styling
+                    // Headers with better spacing and styling
+                    h1: ({ children }) => (
+                      <h1 className="text-2xl font-bold text-foreground mt-8 mb-4 pb-2 border-b-2 border-primary/20">
+                        {children}
+                      </h1>
+                    ),
+                    h2: ({ children }) => (
+                      <h2 className="text-xl font-bold text-foreground mt-6 mb-3 pb-2 border-b border-border/30">
+                        {children}
+                      </h2>
+                    ),
                     h3: ({ children }) => (
-                      <h3 className="text-lg font-semibold text-foreground border-b border-border/30 pb-2 mb-3 flex items-center gap-2">
+                      <h3 className="text-lg font-semibold text-foreground mt-5 mb-3 flex items-center gap-2">
                         {children?.toString()?.includes('Document Agent') && <FileTextIcon className="h-4 w-4 text-emerald-500" />}
                         {children?.toString()?.includes('Web Agent') && <GlobeIcon className="h-4 w-4 text-blue-500" />}
                         {children?.toString()?.includes('Final Team') && <BrainIcon className="h-4 w-4 text-purple-500" />}
                         {children}
                       </h3>
                     ),
-                    hr: () => <hr className="border-border/30 my-4" />,
-                    blockquote: ({ children }) => (
-                      <blockquote className="border-l-4 border-accent/50 pl-4 italic text-foreground-muted bg-background-secondary/30 p-3 rounded-r-lg">
+                    h4: ({ children }) => (
+                      <h4 className="text-base font-semibold text-foreground mt-4 mb-2">
                         {children}
-                      </blockquote>
+                      </h4>
                     ),
+                    h5: ({ children }) => (
+                      <h5 className="text-sm font-semibold text-foreground mt-3 mb-2">
+                        {children}
+                      </h5>
+                    ),
+                    h6: ({ children }) => (
+                      <h6 className="text-sm font-medium text-foreground/80 mt-2 mb-2">
+                        {children}
+                      </h6>
+                    ),
+                    
+                    // Paragraphs with proper spacing
+                    p: ({ children }) => (
+                      <p className="text-foreground leading-7 mb-4 [&:not(:first-child)]:mt-4">
+                        {children}
+                      </p>
+                    ),
+                    
+                    // Lists with better styling
+                    ul: ({ children }) => (
+                      <ul className="list-disc pl-6 mb-4 space-y-2 text-foreground">
+                        {children}
+                      </ul>
+                    ),
+                    ol: ({ children }) => (
+                      <ol className="list-decimal pl-6 mb-4 space-y-2 text-foreground">
+                        {children}
+                      </ol>
+                    ),
+                    li: ({ children }) => (
+                      <li className="text-foreground leading-7">
+                        {children}
+                      </li>
+                    ),
+                    
+                    // Enhanced table styling
                     table: ({ children }) => (
-                      <div className="overflow-x-auto my-4">
-                        <table className="w-full border-collapse border border-border">
+                      <div className="overflow-x-auto my-6 rounded-lg border border-border shadow-sm">
+                        <table className="w-full border-collapse bg-background">
                           {children}
                         </table>
                       </div>
                     ),
+                    thead: ({ children }) => (
+                      <thead className="bg-muted/50">
+                        {children}
+                      </thead>
+                    ),
+                    tbody: ({ children }) => (
+                      <tbody className="divide-y divide-border">
+                        {children}
+                      </tbody>
+                    ),
                     th: ({ children }) => (
-                      <th className="border border-border bg-background-secondary p-2 text-left font-semibold">
+                      <th className="px-4 py-3 text-left text-sm font-semibold text-foreground border-b border-border">
                         {children}
                       </th>
                     ),
                     td: ({ children }) => (
-                      <td className="border border-border p-2">
+                      <td className="px-4 py-3 text-sm text-foreground">
                         {children}
                       </td>
                     ),
+                    
+                    // Better horizontal rules
+                    hr: () => <hr className="border-border/40 my-6" />,
+                    
+                    // Enhanced blockquotes
+                    blockquote: ({ children }) => (
+                      <blockquote className="border-l-4 border-primary/40 pl-4 py-2 italic text-foreground/90 bg-muted/20 rounded-r-lg my-4">
+                        {children}
+                      </blockquote>
+                    ),
+                    
+                    // Better links
                     a: ({ href, children }) => (
                       <a 
                         href={href} 
                         target="_blank" 
                         rel="noopener noreferrer" 
-                        className="text-primary hover:text-primary/80 underline decoration-primary/30 hover:decoration-primary/60 transition-colors inline-flex items-center gap-1"
+                        className="text-primary hover:text-primary/80 underline decoration-primary/30 hover:decoration-primary/60 transition-colors inline-flex items-center gap-1 font-medium"
                       >
                         {children}
-                        <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <svg className="h-3 w-3 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
                         </svg>
                       </a>
                     ),
-                    code: ({ inline, children }) => 
-                      inline ? (
-                        <code className="bg-muted px-1 py-0.5 rounded text-foreground font-mono text-sm">
+                    
+                    // Enhanced code blocks
+                    code: ({ inline, children, className }: any) => {
+                      const language = className?.replace('language-', '') || ''
+                      return inline ? (
+                        <code className="bg-muted/60 px-1.5 py-0.5 rounded text-foreground font-mono text-sm border">
                           {children}
                         </code>
                       ) : (
-                        <code className="block bg-muted p-3 rounded-lg font-mono text-sm overflow-x-auto">
-                          {children}
-                        </code>
+                        <div className="relative my-4">
+                          {language && (
+                            <div className="absolute top-0 right-0 bg-muted/80 px-2 py-1 text-xs font-medium text-foreground/70 rounded-bl-md rounded-tr-lg border border-border">
+                              {language}
+                            </div>
+                          )}
+                          <pre className="bg-muted/40 border border-border p-4 rounded-lg font-mono text-sm overflow-x-auto">
+                            <code className="text-foreground">
+                              {children}
+                            </code>
+                          </pre>
+                        </div>
                       )
+                    },
+                    
+                    // Enhanced strong and em
+                    strong: ({ children }) => (
+                      <strong className="font-semibold text-foreground">
+                        {children}
+                      </strong>
+                    ),
+                    em: ({ children }) => (
+                      <em className="italic text-foreground/90">
+                        {children}
+                      </em>
+                    ),
                   }}
                 >
                   {message.content}
