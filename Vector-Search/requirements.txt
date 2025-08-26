@@ -1,0 +1,18 @@
+# Core dependencies
+python-dotenv
+requests
+
+# Agno framework
+agno
+openai
+
+# Database
+psycopg2-binary
+pgvector
+
+# Document processing
+docling
+
+# Local embeddings
+transformers
+sentence-transformers
