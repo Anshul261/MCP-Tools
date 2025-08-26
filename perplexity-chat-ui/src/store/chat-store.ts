@@ -211,6 +211,7 @@ export const useChatStore = create<ChatState>()(
             let agentOutputs: { [agentId: string]: string } = {}
             let finalContent = ''
             let currentAgentId = ''
+            // Simple approach: just track what we've accumulated so far
             
             while (true) {
               const { done, value } = await reader.read()
@@ -223,7 +224,7 @@ export const useChatStore = create<ChatState>()(
 
               for (const line of lines) {
                 if (line.startsWith('data: ')) {
-                  const data = line.slice(6).trim()
+                  const data = line.slice(6) // Don't trim! Spaces are important for token streaming
                   if (data === '[DONE]') {
                     break
                   }
@@ -267,29 +268,19 @@ export const useChatStore = create<ChatState>()(
                     }
                     // Handle content chunks - this is the actual agent response text
                     else {
-                      // FIX: Add proper spacing between tokens (this was the original issue)
-                      const contentChunk = data
-                      
+                      // The API sends tokens correctly with spaces - just concatenate directly
                       if (currentAgentId && currentAgentId !== 'reasoning_team' && currentAgentId !== '') {
                         // This is content from a specific agent
                         if (!agentOutputs[currentAgentId]) {
                           agentOutputs[currentAgentId] = ''
                         }
-                        // Add space only if there's existing content and new chunk doesn't start with space/punctuation
-                        if (agentOutputs[currentAgentId] && !contentChunk.match(/^[\s.,!?;:]/) && !agentOutputs[currentAgentId].match(/[\s]$/)) {
-                          agentOutputs[currentAgentId] += ' '
-                        }
-                        agentOutputs[currentAgentId] += contentChunk
+                        agentOutputs[currentAgentId] += data
                       } else {
-                        // This is final team content
-                        // Add space only if there's existing content and new chunk doesn't start with space/punctuation
-                        if (finalContent && !contentChunk.match(/^[\s.,!?;:]/) && !finalContent.match(/[\s]$/)) {
-                          finalContent += ' '
-                        }
-                        finalContent += contentChunk
+                        // This is final team content  
+                        finalContent += data
                       }
                       
-                      // Update display with properly formatted content
+                      // Update display with current content
                       let displayContent = ''
                       
                       // Add individual agent outputs
@@ -299,13 +290,13 @@ export const useChatStore = create<ChatState>()(
                                           agentId === 'web_agent' ? 'Web Agent' : 
                                           agentId === 'document_agent' ? 'Document Agent' :
                                           agentId.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase())
-                          displayContent += `### ${agentName} Output\n\n${output.trim()}\n\n---\n\n`
+                          displayContent += `### ${agentName} Output\n\n${output}\n\n---\n\n`
                         }
                       })
                       
                       // Add final team response
                       if (finalContent && finalContent.trim()) {
-                        displayContent += `### Final Team Response\n\n${finalContent.trim()}`
+                        displayContent += `### Final Team Response\n\n${finalContent}`
                       }
                       
                       if (displayContent) {
@@ -316,6 +307,7 @@ export const useChatStore = create<ChatState>()(
                 }
               }
             }
+
           }
         } catch (error) {
           console.error('Failed to send streaming message:', error)
