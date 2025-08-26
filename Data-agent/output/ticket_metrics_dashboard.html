@@ -1,0 +1,139 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ticket Metrics Dashboard</title>
+    <style>
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; margin: 0; padding: 20px; background: #f4f7f9; color: #333; }
+        h1 { text-align: center; margin-bottom: 40px; color: #2c3e50; }
+        .dashboard { display: grid; grid-template-columns: repeat(auto-fit, minmax(350px, 1fr)); gap: 20px; }
+        .card { background: white; padding: 20px; border-radius: 10px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); display: flex; flex-direction: column; }
+        canvas { width: 100% !important; height: 280px !important; }
+        .insight { margin-top: 10px; font-size: 0.9rem; color: #555; }
+    </style>
+</head>
+<body>
+    <h1>Ticket Metrics Dashboard</h1>
+    <div class="dashboard">
+        <!-- Ticket Type Distribution -->
+        <div class="card">
+            <h2>Ticket Type Distribution</h2>
+            <canvas id="typeChart"></canvas>
+            <p class="insight">Most tickets are "Incident" and "Service Request", reflecting common IT workload categories.</p>
+        </div>
+
+        <!-- Ticket Status Distribution -->
+        <div class="card">
+            <h2>Ticket Status Distribution</h2>
+            <canvas id="statusChart"></canvas>
+            <p class="insight">Majority of tickets are Closed indicating good resolution rates.</p>
+        </div>
+
+        <!-- Monthly Ticket Volume -->
+        <div class="card">
+            <h2>Monthly Ticket Volume</h2>
+            <canvas id="monthlyChart"></canvas>
+            <p class="insight">Ticket volume is steadily increasing month over month.</p>
+        </div>
+
+        <!-- Average Resolution Time by Category -->
+        <div class="card">
+            <h2>Average Resolution Time by Category (hours)</h2>
+            <canvas id="resolutionChart"></canvas>
+            <p class="insight">Preventive Maintenance tickets have the highest average resolution time, suggesting complex or long-duration tasks.</p>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script>
+        const typeData = {
+            labels: ["Incident", "Service Request", "Preventive Maintenance", "Security Incident", "Request For Information", "Change Requests"],
+            datasets: [{
+                label: 'Ticket Count',
+                data: [2245, 2180, 20, 16, 5, 3],
+                backgroundColor: ['#3498db', '#2ecc71', '#e67e22', '#9b59b6', '#e74c3c', '#34495e']
+            }]
+        };
+
+        const statusData = {
+            labels: ["Closed", "Waiting for Customer", "Cancelled", "Waiting for Vendor", "Assigned", "Waiting for parts - NOC", "Onhold", "In Progress", "Open"],
+            datasets: [{
+                label: 'Ticket Count',
+                data: [4345, 50, 30, 17, 10, 9, 5, 2, 1],
+                backgroundColor: ['#1abc9c', '#f39c12', '#e74c3c', '#95a5a6', '#2980b9', '#d35400', '#7f8c8d', '#8e44ad', '#c0392b']
+            }]
+        };
+
+        const monthlyData = {
+            labels: ["2025-01", "2025-02", "2025-03", "2025-04"],
+            datasets: [{
+                label: 'Tickets',
+                data: [1071, 1033, 1127, 1238],
+                borderColor: '#3498db',
+                backgroundColor: 'rgba(52, 152, 219, 0.2)',
+                fill: true,
+                tension: 0.3
+            }]
+        };
+
+        const resolutionData = {
+            labels: ["Preventive Maintenance", "Procurement", "Network & Security", "Cloud Services", "Systems", "Telecom", "Microsoft Dynamics 365 - Barton", "End User Support", "Information Security", "License Changes", "Patch Management", "Microsoft", "Application", "Infra Monitoring", "Reports"],
+            datasets: [{
+                label: 'Average Resolution Time (hrs)',
+                data: [388.33, 208.18, 121.97, 105.85, 78.5, 77.1, 74.02, 59.04, 53.42, 50.65, 32.28, 28.72, 27.13, 10.87, 7.3],
+                backgroundColor: '#e67e22'
+            }]
+        };
+
+        const configType = {
+            type: 'pie',
+            data: typeData,
+            options: { responsive: true, plugins: { legend: { position: 'bottom' } } }
+        };
+
+        const configStatus = {
+            type: 'doughnut',
+            data: statusData,
+            options: { responsive: true, plugins: { legend: { position: 'bottom' } } }
+        };
+
+        const configMonthly = {
+            type: 'line',
+            data: monthlyData,
+            options: {
+                responsive: true,
+                scales: {
+                    y: { beginAtZero: true, title: { display: true, text: 'Number of Tickets' } },
+                    x: { title: { display: true, text: 'Month' } }
+                }
+            }
+        };
+
+        const configResolution = {
+            type: 'bar',
+            data: resolutionData,
+            options: {
+                responsive: true,
+                scales: {
+                    y: { beginAtZero: true, title: { display: true, text: 'Hours' } },
+                    x: { title: { display: true, text: 'Category' } }
+                }
+            }
+        };
+
+        window.onload = function() {
+            const ctxType = document.getElementById('typeChart').getContext('2d');
+            const ctxStatus = document.getElementById('statusChart').getContext('2d');
+            const ctxMonthly = document.getElementById('monthlyChart').getContext('2d');
+            const ctxResolution = document.getElementById('resolutionChart').getContext('2d');
+
+            new Chart(ctxType, configType);
+            new Chart(ctxStatus, configStatus);
+            new Chart(ctxMonthly, configMonthly);
+            new Chart(ctxResolution, configResolution);
+        };
+    </script>
+</body>
+</html>

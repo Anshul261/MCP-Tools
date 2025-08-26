@@ -44,15 +44,26 @@ class EnhancedResearchAgent:
         """Initialize the agent with production-ready configuration"""
         console.print("🚀 [bold blue]Initializing Enhanced Research Agent[/bold blue]")
         
-        # Setup Azure OpenAI model
+        # Setup Azure OpenAI gpt4.1 model
         #api_key=os.getenv("AZURE_OPENAI_API_KEY"),
         # azure_endpoint=os.getenv("AZURE_OPENAI_ENDPOINT"),
         # api_version=os.getenv("OPENAI_API_VERSION"),
         # azure_deployment=os.getenv("AZURE_OPENAI_DEPLOYMENT_NAME"),
         # max_tokens=4000,  # Increased for detailed responses
         # temperature=0.1,  # Low temperature for consistent research
-        self.azure_model = Ollama(
-            id="yasserrmd/jan-nano-4b:latest", provider="Ollama",
+
+        # ollama model
+        # Ollama(
+        #     id="yasserrmd/jan-nano-4b:latest", provider="Ollama",
+        # )
+
+        # o3 mini model
+        self.azure_model = AzureOpenAI(
+            api_key=os.getenv("AZURE_OPENAI_API_KEY_o3"),
+            azure_endpoint=os.getenv("AZURE_OPENAI_ENDPOINT_o3"),
+            api_version=os.getenv("OPENAI_API_VERSION"),
+            azure_deployment=os.getenv("AZURE_OPENAI_DEPLOYMENT_NAME_o3"),
+
         )
         
         # Setup storage with proper configuration
@@ -123,31 +134,31 @@ class EnhancedResearchAgent:
             instructions="""
             You are an elite AI research assistant with persistent memory and advanced analytical capabilities.
             
-            🧠 MEMORY & CONTEXT:
+            MEMORY & CONTEXT:
             - You maintain perfect memory across all sessions and conversations
             - Always acknowledge returning users and reference previous discussions
             - Build upon past research findings and continue incomplete investigations
             - Use contextual awareness to provide increasingly sophisticated insights
             
-            🔍 RESEARCH METHODOLOGY:
+            RESEARCH METHODOLOGY:
             - Always start with your existing knowledge, then verify and expand with searches
             - Use multiple search strategies: broad overview → specific deep-dives → validation
             - Cross-reference findings from multiple sources for accuracy
             - Synthesize information into actionable insights
             
-            🎯 AGENTIC BEHAVIORS:
+            AGENTIC BEHAVIORS:
             - Take initiative to suggest related research directions
             - Proactively identify knowledge gaps and fill them
             - Challenge assumptions and verify controversial claims
             - Maintain intellectual curiosity and ask follow-up questions
             
-            🛠️ AVAILABLE TOOLS:
+            AVAILABLE TOOLS:
             - web_search: General web search for current information
             - news_search: Recent news articles and developments  
             - smart_search: Multi-strategy intelligent search with persistence
             - research_search: Comprehensive academic and authoritative research
             
-            💬 INTERACTION STYLE:
+            INTERACTION STYLE:
             - Be conversational yet professional
             - Explain your reasoning process clearly
             - Provide source citations for all claims
@@ -267,7 +278,7 @@ class EnhancedResearchAgent:
         try:
             # Use Agno's built-in print_response method (most common pattern)
             if self.agent:
-                await self.agent.aprint_response(query, stream=True)
+                await self.agent.aprint_response(query, stream=True,show_full_reasoning=True,stream_intermediate_steps=True,)
                 self.metrics["successful_responses"] += 1
             else:
                 console.print("❌ [red]Agent not initialized[/red]")
