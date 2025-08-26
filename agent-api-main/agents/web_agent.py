@@ -42,7 +42,8 @@ class WebAgentFactory(BaseAgentFactory):
         # Add web search tools if API key is available
         tools = []
         if settings.external.brave_api_key:
-            tools.append(BraveSearchTools())
+            # Configure BraveSearchTools with fixed max results to avoid None count error
+            tools.append(BraveSearchTools(fixed_max_results=10))
             logger.info("Added Brave Search tools to web agent")
         else:
             logger.warning("Brave API key not found, web agent will have limited functionality")
