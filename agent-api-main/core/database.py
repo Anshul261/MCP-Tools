@@ -1,5 +1,5 @@
 # core/database.py
-from typing import Generator
+from typing import Generator, List
 from sqlalchemy import create_engine, Engine, text
 from sqlalchemy.orm import Session, sessionmaker
 from agno.embedder.huggingface import HuggingfaceCustomEmbedder
@@ -141,6 +141,74 @@ class DatabaseManager:
         except Exception as e:
             logger.error(f"Failed to initialize knowledge base: {e}")
             raise
+
+    async def check_document_exists_in_vector_db(self, filename: str) -> bool:
+        """Check if a document already exists in the vector database"""
+        try:
+            # Query the vector database for documents with the specified filename
+            with self.engine.connect() as conn:
+                # Use parameterized query to avoid SQL injection
+                query = text("SELECT EXISTS(SELECT 1 FROM {} WHERE meta->>'file_name' = :filename)".format(settings.documents.vector_table))
+                result = conn.execute(query, {"filename": filename})
+                exists = result.scalar()
+                return bool(exists)
+        except Exception as e:
+            logger.error(f"Error checking if document exists in vector DB: {e}")
+            return False
+
+    async def get_documents_in_vector_db(self) -> List[str]:
+        """Get list of all document filenames currently in the vector database"""
+        try:
+            with self.engine.connect() as conn:
+                # First, let's check what columns and metadata exist
+                table_name = settings.documents.vector_table
+                
+                # Debug: Let's see what metadata structure exists
+                try:
+                    debug_query = text(f"SELECT meta FROM {table_name} LIMIT 3")
+                    debug_result = conn.execute(debug_query)
+                    for row in debug_result.fetchall():
+                        logger.info(f"Sample metadata structure: {row[0]}")
+                except Exception as debug_e:
+                    logger.debug(f"Debug query failed: {debug_e}")
+                
+                # Try different possible metadata field names
+                possible_queries = [
+                    f"SELECT DISTINCT meta->>'file_name' FROM {table_name} WHERE meta->>'file_name' IS NOT NULL",
+                    f"SELECT DISTINCT meta->>'filename' FROM {table_name} WHERE meta->>'filename' IS NOT NULL", 
+                    f"SELECT DISTINCT meta->>'source' FROM {table_name} WHERE meta->>'source' IS NOT NULL",
+                    f"SELECT DISTINCT meta->>'name' FROM {table_name} WHERE meta->>'name' IS NOT NULL"
+                ]
+                
+                filenames = []
+                for query_str in possible_queries:
+                    try:
+                        query = text(query_str)
+                        result = conn.execute(query)
+                        new_filenames = [row[0] for row in result.fetchall() if row[0]]
+                        if new_filenames:
+                            filenames.extend(new_filenames)
+                            logger.info(f"Found {len(new_filenames)} documents using query: {query_str}")
+                        break  # Use the first successful query
+                    except Exception as query_e:
+                        logger.debug(f"Query failed: {query_str} - {query_e}")
+                        continue
+                
+                # Remove duplicates and file extensions from paths
+                unique_filenames = []
+                for filename in filenames:
+                    # Extract just the filename from potential full paths
+                    if '/' in filename:
+                        filename = filename.split('/')[-1]
+                    unique_filenames.append(filename)
+                
+                unique_filenames = list(set(unique_filenames))
+                logger.info(f"Final unique filenames found: {unique_filenames}")
+                return unique_filenames
+                
+        except Exception as e:
+            logger.error(f"Error getting documents from vector DB: {e}")
+            return []
     
     def health_check(self) -> dict:
         """Perform health check on database connections"""

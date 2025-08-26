@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button'
 import { useChatStore } from '@/store/chat-store'
 import { Session } from '@/types'
 import { formatDate } from '@/lib/utils'
-import { PlusIcon, MessageSquareIcon, SettingsIcon, TrashIcon, ChevronLeftIcon, ChevronRightIcon, SparklesIcon, TrendingUpIcon, ClockIcon, LogOutIcon } from 'lucide-react'
+import { PlusIcon, MessageSquareIcon, SettingsIcon, TrashIcon, ChevronLeftIcon, ChevronRightIcon, SparklesIcon, TrendingUpIcon, ClockIcon, LogOutIcon, FileTextIcon } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
@@ -302,6 +302,33 @@ export default function Sidebar() {
                       <SettingsIcon className="h-4 w-4 mr-2" />
                     </motion.div>
                     <span className="relative z-10">Settings</span>
+                  </Button>
+                </Link>
+              </motion.div>
+
+              {/* Documents Button */}
+              <motion.div
+                whileHover={{ scale: 1.02 }}
+                whileTap={{ scale: 0.98 }}
+              >
+                <Link href="/documents">
+                  <Button
+                    variant="ghost"
+                    className="w-full justify-start hover:bg-gradient-to-r hover:from-accent/50 hover:to-accent/20 transition-all duration-200 relative overflow-hidden"
+                  >
+                    <motion.div
+                      className="absolute inset-0 bg-gradient-to-r from-transparent via-primary/5 to-transparent"
+                      animate={{ x: ['-100%', '100%'] }}
+                      transition={{ duration: 4.5, repeat: Infinity, ease: "linear" }}
+                    />
+                    <motion.div
+                      whileHover={{ rotate: 10 }}
+                      transition={{ duration: 0.3 }}
+                      className="relative z-10"
+                    >
+                      <FileTextIcon className="h-4 w-4 mr-2" />
+                    </motion.div>
+                    <span className="relative z-10">Documents</span>
                   </Button>
                 </Link>
               </motion.div>
