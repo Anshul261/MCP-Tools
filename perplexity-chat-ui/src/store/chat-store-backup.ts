@@ -211,7 +211,10 @@ export const useChatStore = create<ChatState>()(
             let agentOutputs: { [agentId: string]: string } = {}
             let finalContent = ''
             let currentAgentId = ''
-            
+            let previousAgentId = ''
+            let contentBuffer = ''
+            let isStreamingComplete = false
+
             while (true) {
               const { done, value } = await reader.read()
               if (done) {
@@ -225,10 +228,11 @@ export const useChatStore = create<ChatState>()(
                 if (line.startsWith('data: ')) {
                   const data = line.slice(6).trim()
                   if (data === '[DONE]') {
+                    isStreamingComplete = true
                     break
                   }
                   
-                  if (data && data.length > 0) {
+                  if (data) {
                     // Detect different types of events
                     const isEvent = data.includes('Event(') || 
                                   data.includes('created_at=') || 
@@ -245,13 +249,26 @@ export const useChatStore = create<ChatState>()(
                       // Extract agent ID if present
                       const agentMatch = data.match(/agent_id='([^']+)'/)
                       if (agentMatch) {
-                        currentAgentId = agentMatch[1]
+                        const newAgentId = agentMatch[1]
+                        
+                        // If agent changed, flush previous agent's content
+                        if (currentAgentId && currentAgentId !== newAgentId && contentBuffer.trim()) {
+                          if (!agentOutputs[currentAgentId]) {
+                            agentOutputs[currentAgentId] = ''
+                          }
+                          agentOutputs[currentAgentId] = contentBuffer.trim()
+                          contentBuffer = '' // Reset buffer for new agent
+                        }
+                        
+                        previousAgentId = currentAgentId
+                        currentAgentId = newAgentId
                       }
                       
                       // Also check for agent_name in case agent_id is missing
                       const agentNameMatch = data.match(/agent_name='([^']+)'/)
                       if (agentNameMatch && !currentAgentId) {
-                        currentAgentId = agentNameMatch[1].toLowerCase().replace(' ', '_')
+                        const agentName = agentNameMatch[1].toLowerCase().replace(' ', '_')
+                        currentAgentId = agentName
                       }
                       
                       const event: ChainOfThoughtEvent = {
@@ -265,56 +282,115 @@ export const useChatStore = create<ChatState>()(
                       chainOfThought.push(event)
                       state.updateLastMessageChainOfThought([...chainOfThought])
                     }
-                    // Handle content chunks - this is the actual agent response text
-                    else {
-                      // FIX: Add proper spacing between tokens (this was the original issue)
-                      const contentChunk = data
+                    // Handle content chunks - single words from streaming
+                    else if (data.length > 0 && !isEvent) {
+                      // API streams individual words, we need to accumulate them
+                      contentBuffer += (contentBuffer ? ' ' : '') + data.trim()
                       
-                      if (currentAgentId && currentAgentId !== 'reasoning_team' && currentAgentId !== '') {
-                        // This is content from a specific agent
-                        if (!agentOutputs[currentAgentId]) {
-                          agentOutputs[currentAgentId] = ''
+                      // Update display periodically to show streaming progress
+                      // More frequent updates for better user experience
+                      if (contentBuffer.length > 20 || 
+                          contentBuffer.includes('.') || 
+                          contentBuffer.includes('\n') ||
+                          contentBuffer.includes('?') ||
+                          contentBuffer.includes('!') ||
+                          contentBuffer.includes(':')) {
+                        
+                        if (currentAgentId && currentAgentId !== 'reasoning_team' && currentAgentId !== '') {
+                          // This is individual agent output
+                          if (!agentOutputs[currentAgentId]) {
+                            agentOutputs[currentAgentId] = ''
+                          }
+                          // Replace the current agent's output with the accumulated buffer
+                          agentOutputs[currentAgentId] = contentBuffer.trim()
+                        } else {
+                          // This is team/final output (no specific agent or reasoning_team)
+                          finalContent = contentBuffer.trim()
                         }
-                        // Add space only if there's existing content and new chunk doesn't start with space/punctuation
-                        if (agentOutputs[currentAgentId] && !contentChunk.match(/^[\s.,!?;:]/) && !agentOutputs[currentAgentId].match(/[\s]$/)) {
-                          agentOutputs[currentAgentId] += ' '
+                        
+                        // Update display with accumulated content
+                        let displayContent = ''
+                        
+                        // Add individual agent outputs
+                        Object.entries(agentOutputs).forEach(([agentId, output]) => {
+                          if (output.trim()) {
+                            const agentName = agentId === 'doc_agent' ? 'Document Agent' : 
+                                            agentId === 'web_agent' ? 'Web Agent' : agentId
+                            displayContent += `### ${agentName} Output\n\n${output.trim()}\n\n---\n\n`
+                          }
+                        })
+                        
+                        // Add final content if available
+                        if (finalContent.trim()) {
+                          displayContent += `### Final Team Response\n\n${finalContent.trim()}`
                         }
-                        agentOutputs[currentAgentId] += contentChunk
-                      } else {
-                        // This is final team content
-                        // Add space only if there's existing content and new chunk doesn't start with space/punctuation
-                        if (finalContent && !contentChunk.match(/^[\s.,!?;:]/) && !finalContent.match(/[\s]$/)) {
-                          finalContent += ' '
+                        
+                        if (displayContent) {
+                          state.updateLastMessage(displayContent)
                         }
-                        finalContent += contentChunk
-                      }
-                      
-                      // Update display with properly formatted content
-                      let displayContent = ''
-                      
-                      // Add individual agent outputs
-                      Object.entries(agentOutputs).forEach(([agentId, output]) => {
-                        if (output && output.trim()) {
-                          const agentName = agentId === 'doc_agent' ? 'Document Agent' : 
-                                          agentId === 'web_agent' ? 'Web Agent' : 
-                                          agentId === 'document_agent' ? 'Document Agent' :
-                                          agentId.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase())
-                          displayContent += `### ${agentName} Output\n\n${output.trim()}\n\n---\n\n`
-                        }
-                      })
-                      
-                      // Add final team response
-                      if (finalContent && finalContent.trim()) {
-                        displayContent += `### Final Team Response\n\n${finalContent.trim()}`
-                      }
-                      
-                      if (displayContent) {
-                        state.updateLastMessage(displayContent)
+                        
+                        // Don't clear buffer yet, keep accumulating until completion
                       }
                     }
                   }
                 }
               }
+              
+              if (isStreamingComplete) break
+            }
+
+            // Final cleanup - flush any remaining content
+            if (contentBuffer.trim()) {
+              const cleanContent = contentBuffer.trim()
+              if (currentAgentId && currentAgentId !== 'reasoning_team' && currentAgentId !== '') {
+                // Update the agent's output with the final accumulated content
+                agentOutputs[currentAgentId] = cleanContent
+              } else {
+                // Update final content
+                finalContent = cleanContent
+              }
+            }
+            
+            // Clean up all agent outputs - normalize spacing
+            Object.keys(agentOutputs).forEach(agentId => {
+              if (agentOutputs[agentId]) {
+                agentOutputs[agentId] = agentOutputs[agentId]
+                  .replace(/\s+/g, ' ') // Normalize multiple spaces
+                  .trim()
+              }
+            })
+            
+            // Clean up final content
+            if (finalContent) {
+              finalContent = finalContent
+                .replace(/\s+/g, ' ')
+                .trim()
+            }
+            
+            // Final display update
+            let displayContent = ''
+            
+            // Add individual agent outputs
+            Object.entries(agentOutputs).forEach(([agentId, output]) => {
+              if (output && output.trim()) {
+                const agentName = agentId === 'doc_agent' ? 'Document Agent' : 
+                                agentId === 'web_agent' ? 'Web Agent' : 
+                                agentId === 'document_agent' ? 'Document Agent' :
+                                agentId.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase())
+                displayContent += `### ${agentName} Output\n\n${output.trim()}\n\n---\n\n`
+              }
+            })
+            
+            // Add final team response
+            if (finalContent && finalContent.trim()) {
+              displayContent += `### Final Team Response\n\n${finalContent.trim()}`
+            }
+            
+            // Update the message with the final content
+            if (displayContent) {
+              state.updateLastMessage(displayContent)
+            } else if (chainOfThought.length > 0) {
+              state.updateLastMessage('Response completed. See reasoning steps above for details.')
             }
           }
         } catch (error) {
