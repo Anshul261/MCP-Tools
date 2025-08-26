@@ -71,13 +71,14 @@ class DocumentProcessor:
                 "error": str(e)
             }
     
-    def convert_all_documents(self) -> Dict[str, Any]:
+    async def convert_all_documents(self, skip_existing: bool = True) -> Dict[str, Any]:
         """Convert all documents in source directory"""
         if not self.src_dir.exists():
             return {
                 "total_files": 0,
                 "converted": 0,
                 "failed": 0,
+                "skipped": 0,
                 "results": [],
                 "message": "Source directory does not exist"
             }
@@ -86,18 +87,53 @@ class DocumentProcessor:
         self.converted_dir.mkdir(parents=True, exist_ok=True)
         
         # Get all files to convert
-        files_to_convert = [
+        all_files = [
             f for f in self.src_dir.iterdir() 
             if f.is_file() and f.suffix.lower() in self.allowed_extensions
         ]
         
-        if not files_to_convert:
+        if not all_files:
             return {
                 "total_files": 0,
                 "converted": 0,
                 "failed": 0,
+                "skipped": 0,
                 "results": [],
                 "message": "No valid files found for conversion"
+            }
+        
+        # Filter out files that already exist in vector DB if skip_existing is True
+        files_to_convert = []
+        skipped_count = 0
+        
+        if skip_existing:
+            # Import here to avoid circular imports
+            from core.database import db_manager
+            
+            try:
+                existing_docs = await db_manager.get_documents_in_vector_db()
+                logger.info(f"Found {len(existing_docs)} existing documents in vector DB")
+                
+                for file_path in all_files:
+                    if file_path.name in existing_docs:
+                        logger.info(f"Skipping conversion for {file_path.name} - already exists in vector database")
+                        skipped_count += 1
+                    else:
+                        files_to_convert.append(file_path)
+            except Exception as e:
+                logger.warning(f"Could not check existing documents, processing all: {e}")
+                files_to_convert = all_files
+        else:
+            files_to_convert = all_files
+        
+        if not files_to_convert:
+            return {
+                "total_files": len(all_files),
+                "converted": 0,
+                "failed": 0,
+                "skipped": skipped_count,
+                "results": [],
+                "message": f"All {len(all_files)} documents already exist in vector database"
             }
         
         # Convert files
@@ -115,11 +151,12 @@ class DocumentProcessor:
                 failed_count += 1
         
         return {
-            "total_files": len(files_to_convert),
+            "total_files": len(all_files),
             "converted": converted_count,
             "failed": failed_count,
+            "skipped": skipped_count,
             "results": results,
-            "message": f"Converted {converted_count} documents, {failed_count} failed"
+            "message": f"Converted {converted_count} documents, {failed_count} failed, {skipped_count} skipped"
         }
     
     def add_document(self, file_path: Path, filename: str = None) -> Dict[str, Any]:

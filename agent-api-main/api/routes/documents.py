@@ -1,5 +1,5 @@
 # api/routes/documents.py
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Optional
 from fastapi import APIRouter, HTTPException, UploadFile, File, status
 from pydantic import BaseModel
 import tempfile
@@ -19,7 +19,7 @@ class DocumentInfo(BaseModel):
     filename: str
     size: int
     converted: bool
-    converted_path: str = None
+    converted_path: Optional[str] = None
     extension: str
     valid: bool
 
@@ -37,9 +37,11 @@ class DocumentStats(BaseModel):
 class UploadResult(BaseModel):
     """Upload result model"""
     filename: str
-    size: int = None
+    size: Optional[int] = None
     success: bool
-    error: str = None
+    processed: bool = False
+    already_existed: bool = False
+    error: Optional[str] = None
 
 
 class ProcessResult(BaseModel):
@@ -48,6 +50,7 @@ class ProcessResult(BaseModel):
     total_files: int
     converted: int
     failed: int
+    skipped: int = 0
     knowledge_base_reloaded: bool
 
 
@@ -94,6 +97,15 @@ async def upload_documents(files: List[UploadFile] = File(...)):
     for file in files:
         temp_file_path = None
         try:
+            # Check if filename is provided
+            if not file.filename:
+                failed_files.append(UploadResult(
+                    filename="unknown_file",
+                    success=False,
+                    error="Filename is required"
+                ))
+                continue
+            
             # Create temporary file
             with tempfile.NamedTemporaryFile(delete=False, suffix=Path(file.filename).suffix) as temp_file:
                 content = await file.read()
@@ -104,10 +116,36 @@ async def upload_documents(files: List[UploadFile] = File(...)):
             result = doc_processor.add_document(temp_file_path, file.filename)
             
             if result["success"]:
+                # Check if document already exists in vector DB
+                processed = False
+                already_existed = False
+                try:
+                    exists = await db_manager.check_document_exists_in_vector_db(result["filename"])
+                    if not exists:
+                        # Process the individual document immediately
+                        convert_result = doc_processor.convert_single_document(
+                            settings.documents.source_dir / result["filename"]
+                        )
+                        
+                        if convert_result["success"]:
+                            # Reload knowledge base to include the new document
+                            await db_manager.initialize_knowledge_base(recreate=False)
+                            logger.info(f"Processed and indexed new document: {result['filename']}")
+                            processed = True
+                        else:
+                            logger.warning(f"Failed to convert uploaded document: {convert_result['error']}")
+                    else:
+                        logger.info(f"Document {result['filename']} already exists in vector DB, skipping processing")
+                        already_existed = True
+                except Exception as e:
+                    logger.error(f"Error checking/processing document {result['filename']}: {e}")
+                
                 uploaded_files.append(UploadResult(
                     filename=result["filename"],
                     size=result["size"],
-                    success=True
+                    success=True,
+                    processed=processed,
+                    already_existed=already_existed
                 ))
             else:
                 failed_files.append(UploadResult(
@@ -117,9 +155,10 @@ async def upload_documents(files: List[UploadFile] = File(...)):
                 ))
                 
         except Exception as e:
-            logger.error(f"Error uploading file {file.filename}: {e}")
+            filename = file.filename or "unknown_file"
+            logger.error(f"Error uploading file {filename}: {e}")
             failed_files.append(UploadResult(
-                filename=file.filename,
+                filename=filename,
                 success=False,
                 error=str(e)
             ))
@@ -139,10 +178,10 @@ async def upload_documents(files: List[UploadFile] = File(...)):
 
 
 @router.post("/convert", response_model=Dict[str, Any])
-async def convert_documents():
+async def convert_documents(skip_existing: bool = True):
     """Convert uploaded documents to markdown format."""
     try:
-        result = doc_processor.convert_all_documents()
+        result = await doc_processor.convert_all_documents(skip_existing=skip_existing)
         return result
     except Exception as e:
         logger.error(f"Error during document conversion: {e}")
@@ -153,7 +192,7 @@ async def convert_documents():
 
 
 @router.post("/knowledge/reload", response_model=Dict[str, str])
-async def reload_knowledge_base():
+async def reload_knowledge_base(recreate: bool = False):
     """Reload the knowledge base with converted documents."""
     try:
         stats = doc_processor.get_document_stats()
@@ -163,8 +202,8 @@ async def reload_knowledge_base():
                 detail="No converted documents found. Please convert documents first."
             )
         
-        await db_manager.initialize_knowledge_base(recreate=True)
-        return {"message": "Knowledge base reloaded successfully"}
+        await db_manager.initialize_knowledge_base(recreate=recreate)
+        return {"message": f"Knowledge base {'recreated' if recreate else 'reloaded'} successfully"}
         
     except HTTPException:
         raise
@@ -176,29 +215,76 @@ async def reload_knowledge_base():
         )
 
 
+@router.post("/knowledge/recreate", response_model=Dict[str, str])
+async def recreate_knowledge_base():
+    """Recreate the knowledge base from scratch (destroys existing data)."""
+    try:
+        stats = doc_processor.get_document_stats()
+        if stats["converted_documents"] == 0:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="No converted documents found. Please convert documents first."
+            )
+        
+        await db_manager.initialize_knowledge_base(recreate=True)
+        return {"message": "Knowledge base recreated successfully (all previous data cleared)"}
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error recreating knowledge base: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to recreate knowledge base: {str(e)}"
+        )
+
+
 @router.post("/process", response_model=ProcessResult)
-async def process_all_documents():
+async def process_all_documents(skip_existing: bool = True):
     """Process all documents: convert to markdown and reload knowledge base."""
     try:
-        convert_result = doc_processor.convert_all_documents()
+        convert_result = await doc_processor.convert_all_documents(skip_existing=skip_existing)
         
-        if convert_result["converted"] == 0:
+        if convert_result["converted"] == 0 and convert_result.get("skipped", 0) == 0:
             return ProcessResult(
                 message="No documents to process.",
                 total_files=convert_result["total_files"],
                 converted=0,
                 failed=convert_result["failed"],
+                skipped=convert_result.get("skipped", 0),
                 knowledge_base_reloaded=False
             )
         
-        await db_manager.initialize_knowledge_base(recreate=True)
+        # Only reload knowledge base if we converted new documents or if there are converted docs
+        should_reload = convert_result["converted"] > 0 or any(
+            (settings.documents.converted_dir / f"{f.stem}.md").exists()
+            for f in settings.documents.source_dir.iterdir()
+            if f.is_file()
+        )
+        
+        if should_reload:
+            await db_manager.initialize_knowledge_base(recreate=False)
+        
+        message_parts = []
+        if convert_result["converted"] > 0:
+            message_parts.append(f"{convert_result['converted']} documents converted")
+        if convert_result.get("skipped", 0) > 0:
+            message_parts.append(f"{convert_result['skipped']} documents skipped (already in database)")
+        if convert_result["failed"] > 0:
+            message_parts.append(f"{convert_result['failed']} documents failed")
+        
+        if should_reload:
+            message_parts.append("knowledge base updated")
+        
+        message = "Processing completed. " + ", ".join(message_parts) + "."
         
         return ProcessResult(
-            message=f"Processing completed. {convert_result['converted']} documents converted and knowledge base reloaded.",
+            message=message,
             total_files=convert_result["total_files"],
             converted=convert_result["converted"],
             failed=convert_result["failed"],
-            knowledge_base_reloaded=True
+            skipped=convert_result.get("skipped", 0),
+            knowledge_base_reloaded=should_reload
         )
         
     except Exception as e:

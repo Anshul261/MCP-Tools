@@ -165,7 +165,7 @@ class ApiClient {
 
   async uploadDocuments(files: File[]): Promise<{
     message: string
-    uploaded_files: Array<{ filename: string; size: number; success: boolean }>
+    uploaded_files: Array<{ filename: string; size: number; success: boolean; processed: boolean; already_existed: boolean }>
     failed_files: string[]
     total_uploaded: number
     total_failed: number
@@ -187,14 +187,15 @@ class ApiClient {
     return response.json()
   }
 
-  async processDocuments(): Promise<{
+  async processDocuments(skipExisting: boolean = true): Promise<{
     message: string
     total_files: number
     converted: number
     failed: number
+    skipped: number
     knowledge_base_reloaded: boolean
   }> {
-    return this.request('/v1/documents/process', {
+    return this.request(`/v1/documents/process?skip_existing=${skipExisting}`, {
       method: 'POST',
     })
   }
