@@ -144,7 +144,6 @@ analysis_team = Team(
     instructions=[
         f"You have access to a 'data' table with {len(column_types)} columns and 4469 rows of ticket/support data.",
         f"Column types: {column_types}",
-        "Key columns: Request ID, Category, Subcategory, SLA Name, Created Time, Request Status, etc.",
         "ALWAYS query the actual data table using SQL before providing any analysis.",
         "Data Analyst: Run SQL queries on the 'data' table to find real patterns and trends.",
         "Visualization Specialist: Use query results to create meaningful charts and save them to output folder.",
