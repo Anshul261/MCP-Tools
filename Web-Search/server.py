@@ -887,12 +887,12 @@ def main():
     """Main entry point for the server"""
     try:
         logger.info("Starting Brave Search MCP Server...")
+        # Remove any asyncio wrapper - mcp.run() is synchronous for FastMCP
         mcp.run()
     except KeyboardInterrupt:
         logger.info("Server stopped by user")
     except Exception as e:
-        logger.error(f"Server error: {e}")
-        sys.exit(1)
-
+        logger.error(f"Server error: {e}", file=sys.stderr)
+        raise  # Don't call sys.exit(1), let the process end naturally
 if __name__ == "__main__":
     main()
