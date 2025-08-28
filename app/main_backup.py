@@ -42,20 +42,20 @@ async def lifespan(app: FastAPI):
         
         # Agent system should already be initialized
         if hasattr(agent_system, 'initialized') and agent_system.initialized:
-            logger.info("[OK] Agent system initialized successfully")
+            logger.info(" Agent system initialized successfully")
         else:
-            logger.warning("[WARN] Agent system not fully initialized")
+            logger.warning("  Agent system not fully initialized")
         
         # Database manager should be initialized
-        logger.info("[OK] Database systems initialized")
+        logger.info(" Database systems initialized")
         
         # Streaming manager is ready
-        logger.info("[OK] Streaming system initialized")
+        logger.info(" Streaming system initialized")
         
         # Log system status
-        logger.info("AGNO Multi-Agent API Server started successfully")
-        logger.info("Streaming support: Enabled (SSE)")
-        logger.info(f"Agent system: {'Initialized' if agent_system.initialized else 'Mock mode'}")
+        logger.info(f"=€ AGNO Multi-Agent API Server started successfully")
+        logger.info(f"=á Streaming support: Enabled (SSE)")
+        logger.info(f"> Agent system: {'Initialized' if agent_system.initialized else 'Mock mode'}")
         
         app.state.startup_time = time.time()
         
@@ -78,7 +78,7 @@ async def lifespan(app: FastAPI):
     except Exception as e:
         logger.warning(f"Error closing streams: {e}")
     
-    logger.info("[OK] Server shutdown complete")
+    logger.info(" Server shutdown complete")
 
 # Create FastAPI application
 app = FastAPI(
@@ -144,14 +144,14 @@ async def log_requests(request: Request, call_next):
     start_time = time.time()
     
     # Log request
-    logger.info(f"[REQUEST] {request.method} {request.url.path}")
+    logger.info(f"=è {request.method} {request.url.path}")
     
     try:
         response = await call_next(request)
         process_time = time.time() - start_time
         
         # Log response
-        logger.info(f"[RESPONSE] {request.method} {request.url.path} - {response.status_code} ({process_time:.3f}s)")
+        logger.info(f"=ä {request.method} {request.url.path} - {response.status_code} ({process_time:.3f}s)")
         
         # Add timing header
         response.headers["X-Process-Time"] = str(process_time)
@@ -159,7 +159,7 @@ async def log_requests(request: Request, call_next):
         
     except Exception as e:
         process_time = time.time() - start_time
-        logger.error(f"[ERROR] {request.method} {request.url.path} - ERROR ({process_time:.3f}s): {str(e)}")
+        logger.error(f"L {request.method} {request.url.path} - ERROR ({process_time:.3f}s): {str(e)}")
         raise
 
 # Global exception handler
@@ -235,10 +235,10 @@ if __name__ == "__main__":
     }
     
     print(f"""
-Starting AGNO Multi-Agent API Server
-Server: http://{config['host']}:{config['port']}
-Docs: http://{config['host']}:{config['port']}/docs
-Environment: {os.getenv("ENVIRONMENT", "development")}
+=€ Starting AGNO Multi-Agent API Server
+=á Server: http://{config['host']}:{config['port']}
+=Ö Docs: http://{config['host']}:{config['port']}/docs
+=' Environment: {os.getenv("ENVIRONMENT", "development")}
 """)
     
     uvicorn.run("app.main:app", **config)
