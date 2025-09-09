@@ -1,0 +1,210 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ticket Time Analysis Dashboard</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            margin: 0;
+            background-color: #f4f6f8;
+            color: #333;
+        }
+        header {
+            background-color: #3a86ff;
+            color: #fff;
+            padding: 1rem;
+            text-align: center;
+            font-weight: 700;
+            font-size: 1.5rem;
+            letter-spacing: 1px;
+            box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
+        }
+        .container {
+            max-width: 1200px;
+            margin: 2rem auto;
+            padding: 0 1rem;
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            grid-gap: 1.5rem;
+        }
+        .card {
+            background-color: #ffffff;
+            border-radius: 10px;
+            padding: 1.5rem;
+            box-shadow: 0 2px 8px rgba(58, 134, 255, 0.15);
+            display: flex;
+            flex-direction: column;
+        }
+        h2 {
+            font-weight: 700;
+            color: #3a86ff;
+            margin: 0 0 1rem 0;
+            font-size: 1.25rem;
+        }
+        canvas {
+            flex-grow: 1;
+        }
+        .insights {
+            margin-top: 1rem;
+            font-size: 0.9rem;
+            color: #555;
+        }
+    </style>
+</head>
+<body>
+<header>Ticket Time Analysis Dashboard</header>
+<div class="container">
+    <div class="card">
+        <h2>Overdue Requests and Total Requests Over Time</h2>
+        <canvas id="overdueChart"></canvas>
+        <div class="insights">
+            <p>Total requests per month stayed fairly stable from January to April 2025, ranging from 1033 to 1238.</p>
+            <p>Overdue requests remain low compared to total requests, fluctuating slightly between 30 and 34 monthly.</p>
+        </div>
+    </div>
+    <div class="card">
+        <h2>First Response Overdue Requests Over Time</h2>
+        <canvas id="firstResponseOverdueChart"></canvas>
+        <div class="insights">
+            <p>The count of first response overdue requests is higher than overdue requests, showing some variability month to month.</p>
+            <p>There was a peak of 215 overdue first responses in February 2025.</p>
+        </div>
+    </div>
+    <div class="card">
+        <h2>Average Resolution and First Response Times (Hours)</h2>
+        <canvas id="timeAnalysisChart"></canvas>
+        <div class="insights">
+            <p>Average resolution times decreased significantly from about 91 hours in January to around 31 hours by April 2025.</p>
+            <p>Average first response times also improved, decreasing from over 19 hours to under 5 hours in that time period.</p>
+        </div>
+    </div>
+</div>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+const months = ["2025-01", "2025-02", "2025-03", "2025-04"];
+
+const overdueChartCtx = document.getElementById('overdueChart').getContext('2d');
+const overdueChart = new Chart(overdueChartCtx, {
+    type: 'line',
+    data: {
+        labels: months,
+        datasets: [
+            {
+                label: 'Total Requests',
+                data: [1071, 1033, 1127, 1238],
+                borderColor: '#3a86ff',
+                backgroundColor: 'rgba(58, 134, 255, 0.2)',
+                fill: true,
+                tension: 0.3
+            },
+            {
+                label: 'Overdue Requests',
+                data: [30, 33, 34, 31],
+                borderColor: '#ff006e',
+                backgroundColor: 'rgba(255, 0, 110, 0.2)',
+                fill: true,
+                tension: 0.3
+            }
+        ]
+    },
+    options: {
+        responsive: true,
+        interaction: {
+            mode: 'index',
+            intersect: false,
+        },
+        scales: {
+            y: {
+                beginAtZero: true
+            }
+        },
+        plugins: {
+            legend: {
+                labels: {
+                    color: '#333'
+                }
+            }
+        }
+    }
+});
+
+const firstResponseOverdueChartCtx = document.getElementById('firstResponseOverdueChart').getContext('2d');
+const firstResponseOverdueChart = new Chart(firstResponseOverdueChartCtx, {
+    type: 'bar',
+    data: {
+        labels: months,
+        datasets: [{
+            label: 'First Response Overdue Requests',
+            data: [184, 215, 161, 163],
+            backgroundColor: '#ffbe0b'
+        }]
+    },
+    options: {
+        responsive: true,
+        scales: {
+            y: {
+                beginAtZero: true
+            }
+        },
+        plugins: {
+            legend: {
+                display: false
+            }
+        }
+    }
+});
+
+const timeAnalysisChartCtx = document.getElementById('timeAnalysisChart').getContext('2d');
+const timeAnalysisChart = new Chart(timeAnalysisChartCtx, {
+    type: 'line',
+    data: {
+        labels: months,
+        datasets: [
+            {
+                label: 'Avg. Resolution Time (Hours)',
+                data: [91.46, 59.83, 81.51, 31.27],
+                borderColor: '#8338ec',
+                backgroundColor: 'rgba(131, 56, 236, 0.2)',
+                fill: true,
+                tension: 0.3
+            },
+            {
+                label: 'Avg. First Response Time (Hours)',
+                data: [19.29, 11.95, 11.77, 4.74],
+                borderColor: '#3a86ff',
+                backgroundColor: 'rgba(58, 134, 255, 0.2)',
+                fill: true,
+                tension: 0.3
+            }
+        ]
+    },
+    options: {
+        responsive: true,
+        interaction: {
+            mode: 'index',
+            intersect: false,
+        },
+        scales: {
+            y: {
+                beginAtZero: true,
+                title: {
+                    display: true,
+                    text: 'Hours'
+                }
+            }
+        },
+        plugins: {
+            legend: {
+                labels: {
+                    color: '#333'
+                }
+            }
+        }
+    }
+});
+</script>
+</body>
+</html>
