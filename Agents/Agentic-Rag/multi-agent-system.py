@@ -2,6 +2,7 @@ import os
 from pathlib import Path
 from dotenv import load_dotenv
 from agno.tools.mcp import MCPTools
+import base64
 
 # Load environment variables
 load_dotenv()
@@ -20,6 +21,13 @@ from agno.memory.v2.memory import Memory
 from agno.memory.v2.schema import UserMemory
 import uuid
 from datetime import datetime
+
+from openinference.instrumentation.agno import AgnoInstrumentor
+from opentelemetry import trace as trace_api
+from opentelemetry.exporter.otlp.proto.http.trace_exporter import OTLPSpanExporter
+from opentelemetry.sdk.trace import TracerProvider
+from opentelemetry.sdk.trace.export import SimpleSpanProcessor
+
 
 # Create memory database with proper configuration
 MEMORY_DB_PATH = "agent_memory.db"
@@ -102,6 +110,20 @@ if SRC_DIR.exists():
     converted_count = convert_documents(SRC_DIR, CONVERTED_DIR)
     if converted_count > 0:
         print(f"Converted {converted_count} documents")
+
+
+# Set environment variables for Langfuse
+LANGFUSE_AUTH = base64.b64encode(
+    f"{os.getenv('LANGFUSE_PUBLIC_KEY_ag')}:{os.getenv('LANGFUSE_SECRET_KEY_ag')}".encode()
+).decode()
+os.environ["OTEL_EXPORTER_OTLP_ENDPOINT"] = "http://localhost:3000/api/public/otel"
+os.environ["OTEL_EXPORTER_OTLP_HEADERS"] = f"Authorization=Basic {LANGFUSE_AUTH}"
+
+tracer_provider = TracerProvider()
+tracer_provider.add_span_processor(SimpleSpanProcessor(OTLPSpanExporter()))
+trace_api.set_tracer_provider(tracer_provider=tracer_provider)
+
+AgnoInstrumentor().instrument()
 
 # Database configuration
 DB_URL = os.getenv("DB_URL") or f"postgresql://{os.getenv('DB_USER')}:{os.getenv('DB_PASSWORD')}@{os.getenv('DB_HOST')}:{os.getenv('DB_PORT')}/{os.getenv('DB_NAME')}"
