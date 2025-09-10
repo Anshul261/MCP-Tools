@@ -27,3 +27,4 @@ uv.lock
 pyproject.toml
 output.txt
 .claude
+node_modules/
