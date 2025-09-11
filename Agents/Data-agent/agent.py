@@ -1,5 +1,9 @@
 import os
 import base64
+import json
+import glob
+from pathlib import Path
+from typing import Optional
 
 import pandas as pd
 from dotenv import load_dotenv
@@ -7,6 +11,12 @@ from rich.console import Console
 from rich.panel import Panel
 from rich.table import Table
 from rich.progress import track
+
+from fastapi import FastAPI, HTTPException
+from fastapi.staticfiles import StaticFiles
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
+from pydantic import BaseModel
 
 from agno.tools.python import PythonTools
 from agno.agent import Agent
@@ -25,6 +35,16 @@ db_url = "postgresql+psycopg://ai:ai@localhost:5532/ai"
 db = PostgresDb(db_url=db_url)
 
 u_id="anshulraj@gmail.com"
+
+# API Models
+class ChatMessage(BaseModel):
+    message: str
+    chat_id: Optional[str] = "main"
+
+class ChatResponse(BaseModel):
+    response: str
+    visualizations: list = []
+    timestamp: str
 
 class DataProcessor:
     """Simple data preprocessing for Excel/CSV files"""
@@ -132,10 +152,13 @@ viz_specialist = Agent(
         "Use DuckDB to query data and Python to generate clean HTML/CSS/JavaScript dashboards.",
         "Create professional web-based dashboards using Chart.js or D3.js instead of Plotly.",
         "Generate clean HTML files with embedded CSS and JavaScript for beautiful layouts.",
+        "For image charts, use matplotlib or seaborn and save as PNG files.",
         "Focus on card-based layouts, proper spacing, and responsive design.",
-        "Always save dashboards as HTML files in the output folder.",
+        "Always save dashboards as HTML files and charts as PNG files in the output folder.",
+        "When creating files, use descriptive filenames that include the chart type (e.g., 'monthly_trends_chart.png', 'category_analysis_dashboard.html').",
         "Include data insights as text elements within the dashboard.",
         "Use modern web design principles with clean typography and colors.",
+        "Always inform the user when you've created a visualization file and where it's saved.",
     ],
 )
 
@@ -177,6 +200,92 @@ agent_os = AgentOS(
 )
 
 app = agent_os.get_app()
+
+# Add CORS middleware
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["http://localhost:3000", "http://127.0.0.1:3000"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+# Mount static files for serving visualizations
+app.mount("/static", StaticFiles(directory="output"), name="static")
+
+def find_latest_visualizations():
+    """Find the latest visualization files in the output directory"""
+    viz_files = []
+    output_dir = Path("output")
+    
+    if not output_dir.exists():
+        return viz_files
+    
+    # Look for HTML and PNG files
+    for pattern in ["*.html", "*.png"]:
+        files = list(output_dir.glob(pattern))
+        for file_path in files:
+            try:
+                stat = file_path.stat()
+                viz_files.append({
+                    "filename": file_path.name,
+                    "url": f"/static/{file_path.name}",
+                    "type": "html" if file_path.suffix == ".html" else "image",
+                    "created": stat.st_mtime,
+                    "size": stat.st_size
+                })
+            except (OSError, IOError):
+                continue  # Skip files that can't be accessed
+    
+    # Sort by creation time, newest first
+    viz_files.sort(key=lambda x: x['created'], reverse=True)
+    return viz_files
+
+def find_new_visualizations(before_count):
+    """Find visualizations created after a certain point"""
+    current_viz = find_latest_visualizations()
+    if len(current_viz) > before_count:
+        return current_viz[:len(current_viz) - before_count]
+    return []
+
+@app.post("/api/chat", response_model=ChatResponse)
+async def chat_with_agent(message: ChatMessage):
+    """Chat with the data analysis team and get visualizations"""
+    try:
+        # Get current visualization count before processing
+        viz_before = find_latest_visualizations()
+        before_count = len(viz_before)
+        
+        # Send message to the analysis team
+        response = analysis_team.run(message.message, stream=False)
+        
+        # Find newly created visualizations
+        new_visualizations = find_new_visualizations(before_count)
+        
+        from datetime import datetime
+        return ChatResponse(
+            response=response.content,
+            visualizations=new_visualizations,
+            timestamp=datetime.now().isoformat()
+        )
+        
+    except Exception as e:
+        console.print(f"[red]API Error: {str(e)}[/red]")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/api/visualizations")
+async def get_visualizations():
+    """Get all available visualizations"""
+    try:
+        visualizations = find_latest_visualizations()
+        return JSONResponse(content={"visualizations": visualizations})
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/api/health")
+async def health_check():
+    """Health check endpoint"""
+    return {"status": "healthy", "agents": len(agent_os.agents), "teams": len(agent_os.teams)}
 
 if __name__ == "__main__":
     # Default port is 7777; change with port=...
