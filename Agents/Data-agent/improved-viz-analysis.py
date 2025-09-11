@@ -15,28 +15,35 @@ from agno.tools.duckdb import DuckDbTools
 from agno.models.azure import AzureOpenAI
 from agno.tools.reasoning import ReasoningTools
 
-from openinference.instrumentation.agno import AgnoInstrumentor
-from opentelemetry import trace as trace_api
-from opentelemetry.exporter.otlp.proto.http.trace_exporter import OTLPSpanExporter
-from opentelemetry.sdk.trace import TracerProvider
-from opentelemetry.sdk.trace.export import SimpleSpanProcessor
+from agno.db.postgres import PostgresDb
+
+# from openinference.instrumentation.agno import AgnoInstrumentor
+# from opentelemetry import trace as trace_api
+# from opentelemetry.exporter.otlp.proto.http.trace_exporter import OTLPSpanExporter
+# from opentelemetry.sdk.trace import TracerProvider
+# from opentelemetry.sdk.trace.export import SimpleSpanProcessor
 
 
 load_dotenv()
 console = Console()
 
+db_url = "postgresql+psycopg://ai:ai@localhost:5532/ai"
+db = PostgresDb(db_url=db_url)
+
+u_id="anshulraj@gmail.com"
+
 # Set environment variables for Langfuse
-LANGFUSE_AUTH = base64.b64encode(
-    f"{os.getenv('LANGFUSE_PUBLIC_KEY')}:{os.getenv('LANGFUSE_SECRET_KEY')}".encode()
-).decode()
-os.environ["OTEL_EXPORTER_OTLP_ENDPOINT"] = "http://localhost:3000/api/public/otel"
-os.environ["OTEL_EXPORTER_OTLP_HEADERS"] = f"Authorization=Basic {LANGFUSE_AUTH}"
+# LANGFUSE_AUTH = base64.b64encode(
+#     f"{os.getenv('LANGFUSE_PUBLIC_KEY')}:{os.getenv('LANGFUSE_SECRET_KEY')}".encode()
+# ).decode()
+# os.environ["OTEL_EXPORTER_OTLP_ENDPOINT"] = "http://localhost:3000/api/public/otel"
+# os.environ["OTEL_EXPORTER_OTLP_HEADERS"] = f"Authorization=Basic {LANGFUSE_AUTH}"
 
-tracer_provider = TracerProvider()
-tracer_provider.add_span_processor(SimpleSpanProcessor(OTLPSpanExporter()))
-trace_api.set_tracer_provider(tracer_provider=tracer_provider)
+# tracer_provider = TracerProvider()
+# tracer_provider.add_span_processor(SimpleSpanProcessor(OTLPSpanExporter()))
+# trace_api.set_tracer_provider(tracer_provider=tracer_provider)
 
-AgnoInstrumentor().instrument()
+# AgnoInstrumentor().instrument()
 
 class DataProcessor:
     """Simple data preprocessing for Excel/CSV files"""
@@ -99,7 +106,7 @@ csv_path, column_types = processor.clean_and_infer_types(file_path)
 display_data_info(column_types)
 
 # Initialize tools
-duckdb_tools = DuckDbTools(create_tables=False, export_tables=False, summarize_tables=False)
+duckdb_tools = DuckDbTools()
 python_tools = PythonTools()
 reasoning_tools = ReasoningTools()
 
@@ -153,7 +160,7 @@ viz_specialist = Agent(
 # Collaborative Team
 analysis_team = Team(
     name="Data Analysis Team",
-    mode="coordinate",
+    db=db,
     model=AzureOpenAI(
         id=os.getenv("AZURE_OPENAI_DEPLOYMENT_NAME"),
         api_key=os.getenv("AZURE_OPENAI_API_KEY"),
@@ -175,7 +182,6 @@ analysis_team = Team(
     enable_user_memories=True,
     enable_session_summaries=True,
     markdown=True,
-    show_tool_calls=True,
 )
 
 def main():

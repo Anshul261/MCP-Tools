@@ -15,12 +15,16 @@ from agno.team import Team
 from agno.tools.duckdb import DuckDbTools
 from agno.models.azure import AzureOpenAI
 from agno.tools.reasoning import ReasoningTools
-
+from agno.db.postgres import PostgresDb
 
 
 load_dotenv()
 console = Console()
 
+db_url = "postgresql+psycopg://ai:ai@localhost:5532/ai"
+db = PostgresDb(db_url=db_url)
+
+u_id="anshulraj@gmail.com"
 
 class DataProcessor:
     """Simple data preprocessing for Excel/CSV files"""
@@ -137,6 +141,7 @@ viz_specialist = Agent(
 
 analysis_team = Team(
     name="Data Analysis Team",
+    db=db,
     model=AzureOpenAI(
         id=os.getenv("AZURE_OPENAI_DEPLOYMENT_NAME"),
         api_key=os.getenv("AZURE_OPENAI_API_KEY"),
@@ -159,6 +164,7 @@ analysis_team = Team(
     enable_session_summaries=True,
     markdown=True,
     stream_member_events=True,
+    enable_agentic_memory=True,
 )
 
 
