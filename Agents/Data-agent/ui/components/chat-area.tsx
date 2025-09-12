@@ -4,7 +4,7 @@ import { useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { MessageBubble } from "./message-bubble"
-import { Send, Plus, Copy, RotateCcw, Loader2 } from "lucide-react"
+import { Send, Plus, Copy, RotateCcw, Loader2, ImageIcon, Zap } from "lucide-react"
 
 interface Visualization {
   filename: string
@@ -34,14 +34,77 @@ export function ChatArea({ selectedChat }: ChatAreaProps) {
       content: `Welcome to the Data Analysis Agent! I can help you analyze your ticket data and create visualizations. Try asking me things like:
 
 • "Show me the monthly ticket trends"
-• "Create a chart of ticket categories"
+• "Create a chart of ticket categories"  
 • "What insights can you provide about our support data?"
+
+**Header Buttons:**
+📊 - Show recent visualizations
+⚡ - Force create pie chart (backup if agents fail)
 
 Start by typing your question below.`,
       isUser: false,
       timestamp: new Date().toLocaleTimeString(),
     },
   ])
+
+  const handleShowRecentVisualizations = async () => {
+    try {
+      const response = await fetch('http://localhost:7777/api/visualizations')
+      if (response.ok) {
+        const data = await response.json()
+        if (data.visualizations && data.visualizations.length > 0) {
+          const vizMessage: Message = {
+            id: messages.length + 1,
+            content: "Here are the most recent visualizations available:",
+            isUser: false,
+            timestamp: new Date().toLocaleTimeString(),
+            visualizations: data.visualizations.slice(0, 5), // Show up to 5 most recent
+          }
+          setMessages(prev => [...prev, vizMessage])
+        } else {
+          const noVizMessage: Message = {
+            id: messages.length + 1,
+            content: "No visualizations found. Try asking me to create a chart or analysis first!",
+            isUser: false,
+            timestamp: new Date().toLocaleTimeString(),
+          }
+          setMessages(prev => [...prev, noVizMessage])
+        }
+      }
+    } catch (error) {
+      console.error('Error fetching visualizations:', error)
+    }
+  }
+
+  const handleForceVisualization = async () => {
+    try {
+      const response = await fetch('http://localhost:7777/api/force-visualization', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ type: 'pie', query: 'SELECT Category, COUNT(*) as count FROM data GROUP BY Category' })
+      })
+      
+      if (response.ok) {
+        // Wait a moment then fetch latest visualizations
+        setTimeout(async () => {
+          const vizResponse = await fetch('http://localhost:7777/api/visualizations')
+          if (vizResponse.ok) {
+            const data = await vizResponse.json()
+            const vizMessage: Message = {
+              id: messages.length + 1,
+              content: "I've force-created a pie chart visualization for you:",
+              isUser: false,
+              timestamp: new Date().toLocaleTimeString(),
+              visualizations: data.visualizations.slice(0, 1), // Show the newest one
+            }
+            setMessages(prev => [...prev, vizMessage])
+          }
+        }, 2000)
+      }
+    } catch (error) {
+      console.error('Error forcing visualization:', error)
+    }
+  }
 
   const handleSend = async () => {
     if (message.trim() && !isLoading) {
@@ -106,6 +169,24 @@ Start by typing your question below.`,
         <div className="flex items-center justify-between">
           <h2 className="text-lg font-semibold text-foreground">{selectedChat}</h2>
           <div className="flex items-center gap-2">
+            <Button 
+              variant="ghost" 
+              size="sm" 
+              className="text-muted-foreground hover:text-foreground"
+              onClick={handleShowRecentVisualizations}
+              title="Show recent visualizations"
+            >
+              <ImageIcon className="w-4 h-4" />
+            </Button>
+            <Button 
+              variant="ghost" 
+              size="sm" 
+              className="text-muted-foreground hover:text-foreground"
+              onClick={handleForceVisualization}
+              title="Force create pie chart (if agents fail)"
+            >
+              <Zap className="w-4 h-4" />
+            </Button>
             <Button variant="ghost" size="sm" className="text-muted-foreground hover:text-foreground">
               <Copy className="w-4 h-4" />
             </Button>

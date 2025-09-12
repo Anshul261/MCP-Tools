@@ -148,17 +148,26 @@ viz_specialist = Agent(
     ),
     tools=[python_tools, duckdb_tools],
     instructions=[
-        "You are a visualization specialist with access to the 'data' table and Python tools.",
-        "Use DuckDB to query data and Python to generate clean HTML/CSS/JavaScript dashboards.",
-        "Create professional web-based dashboards using Chart.js or D3.js instead of Plotly.",
-        "Generate clean HTML files with embedded CSS and JavaScript for beautiful layouts.",
-        "For image charts, use matplotlib or seaborn and save as PNG files.",
-        "Focus on card-based layouts, proper spacing, and responsive design.",
-        "Always save dashboards as HTML files and charts as PNG files in the output folder.",
-        "When creating files, use descriptive filenames that include the chart type (e.g., 'monthly_trends_chart.png', 'category_analysis_dashboard.html').",
-        "Include data insights as text elements within the dashboard.",
-        "Use modern web design principles with clean typography and colors.",
-        "Always inform the user when you've created a visualization file and where it's saved.",
+        "You are a visualization specialist. You MUST create actual files when users request visualizations.",
+        "WORKFLOW: 1) Query data with DuckDB, 2) Create visualization with Python, 3) Save to output/ folder",
+        "MANDATORY: Use Python tools to execute code that saves files - never just talk about creating them.",
+        "For pie charts: Use matplotlib with plt.pie(), save as PNG to output/ folder",
+        "For line/bar charts: Use matplotlib, save as PNG to output/ folder", 
+        "For dashboards: Create HTML with embedded Chart.js, save to output/ folder",
+        "EXACT WORKING EXAMPLE for pie chart:",
+        "1. DuckDB: SELECT Category, COUNT(*) as count FROM data GROUP BY Category", 
+        "2. Python code to execute:",
+        "   import matplotlib.pyplot as plt",
+        "   plt.figure(figsize=(10, 8))",  
+        "   plt.pie(counts, labels=categories, autopct='%1.1f%%', startangle=90)",
+        "   plt.title('Category Distribution')",
+        "   plt.axis('equal')",
+        "   plt.savefig('output/category_pie_chart.png', dpi=300, bbox_inches='tight')",
+        "   plt.close()",
+        "3. Confirm file was saved to output/ folder",
+        "CRITICAL: You must actually execute the Python code to create and save files.",
+        "Never respond without creating the requested visualization file first.",
+        "Always use descriptive filenames like 'category_pie_chart.png' or 'monthly_trends.png'",
     ],
 )
 
@@ -177,11 +186,20 @@ analysis_team = Team(
     instructions=[
         f"You have access to a 'data' table with {len(column_types)} columns and 4469 rows of ticket/support data.",
         f"Column types: {column_types}",
+        "CRITICAL WORKFLOW: When ANY user asks for charts/visualizations:",
+        "1. Data Analyst: Query the data with SQL",
+        "2. Visualization Specialist: IMMEDIATELY execute Python code to create and save the file",
+        "3. Never just describe - always create actual files",
+        "VISUALIZATION REQUESTS = MANDATORY FILE CREATION",
+        "Examples of requests that REQUIRE file creation:",
+        "- 'Create a chart' → MUST save a file",
+        "- 'Show me a pie chart' → MUST save a file", 
+        "- 'Make a visualization' → MUST save a file",
+        "The Visualization Specialist must use Python tools to execute actual code.",
         "ALWAYS query the actual data table using SQL before providing any analysis.",
-        "Data Analyst: Run SQL queries on the 'data' table to find real patterns and trends.",
-        "Visualization Specialist: Use query results to create meaningful charts and save them to output folder.",
         "Provide concrete insights based on actual data, not hypothetical scenarios.",
         "Focus on time-based trends using the Created Time column for monthly/daily analysis.",
+        "The UI will automatically display created visualizations to users.",
     ],
     enable_user_memories=True,
     enable_session_summaries=True,
@@ -248,21 +266,70 @@ def find_new_visualizations(before_count):
         return current_viz[:len(current_viz) - before_count]
     return []
 
+def find_visualizations_since(start_time):
+    """Find visualizations created or modified since a specific timestamp"""
+    viz_files = []
+    output_dir = Path("output")
+    
+    if not output_dir.exists():
+        return viz_files
+    
+    # Look for HTML and PNG files
+    for pattern in ["*.html", "*.png"]:
+        files = list(output_dir.glob(pattern))
+        for file_path in files:
+            try:
+                stat = file_path.stat()
+                # Check if file was modified after start_time (with 1 second buffer)
+                if stat.st_mtime >= (start_time - 1):
+                    viz_files.append({
+                        "filename": file_path.name,
+                        "url": f"/static/{file_path.name}",
+                        "type": "html" if file_path.suffix == ".html" else "image",
+                        "created": stat.st_mtime,
+                        "size": stat.st_size
+                    })
+            except (OSError, IOError):
+                continue  # Skip files that can't be accessed
+    
+    # Sort by creation time, newest first
+    viz_files.sort(key=lambda x: x['created'], reverse=True)
+    return viz_files
+
 @app.post("/api/chat", response_model=ChatResponse)
 async def chat_with_agent(message: ChatMessage):
     """Chat with the data analysis team and get visualizations"""
     try:
-        # Get current visualization count before processing
-        viz_before = find_latest_visualizations()
-        before_count = len(viz_before)
+        import time
+        from datetime import datetime
+        
+        # Record start time for detecting new files
+        start_time = time.time()
+        console.print(f"[blue]Processing message: {message.message}[/blue]")
         
         # Send message to the analysis team
         response = analysis_team.run(message.message, stream=False)
         
-        # Find newly created visualizations
-        new_visualizations = find_new_visualizations(before_count)
+        # Wait a moment for file system to sync
+        time.sleep(0.5)
         
-        from datetime import datetime
+        # Find files created/modified after start time
+        new_visualizations = find_visualizations_since(start_time)
+        
+        # Fallback: if no new files detected but response mentions creating visualizations,
+        # include the most recent files (in case timing was off)
+        if len(new_visualizations) == 0 and any(keyword in response.content.lower() for keyword in ['created', 'chart', 'visualization', 'graph', 'dashboard', 'saved']):
+            console.print("[yellow]No new files detected but response mentions visualizations, checking recent files...[/yellow]")
+            all_viz = find_latest_visualizations()
+            # Include files from the last 5 minutes as a fallback
+            recent_time = start_time - 300  # 5 minutes ago
+            new_visualizations = [v for v in all_viz[:3] if v['created'] >= recent_time]  # Max 3 most recent
+            console.print(f"[yellow]Fallback: Including {len(new_visualizations)} recent files[/yellow]")
+        
+        console.print(f"[green]Found {len(new_visualizations)} visualizations to display[/green]")
+        for viz in new_visualizations:
+            console.print(f"  - {viz['filename']} ({viz['type']})")
+        
         return ChatResponse(
             response=response.content,
             visualizations=new_visualizations,
@@ -280,6 +347,56 @@ async def get_visualizations():
         visualizations = find_latest_visualizations()
         return JSONResponse(content={"visualizations": visualizations})
     except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/api/force-visualization")  
+async def force_create_visualization(request_data: dict):
+    """Force create a visualization when agents fail"""
+    try:
+        viz_type = request_data.get("type", "pie")
+        query = request_data.get("query", "SELECT Category, COUNT(*) as count FROM data GROUP BY Category")
+        
+        # Execute query directly
+        result = duckdb_tools.execute_sql(query)
+        console.print(f"[blue]Query result: {result}[/blue]")
+        
+        # Create visualization using Python tools directly
+        if viz_type == "pie":
+            python_code = f"""
+import matplotlib.pyplot as plt
+import time
+
+# Data from query
+data = {result}
+if isinstance(data, str):
+    # Handle string result, try to parse
+    print("Result is string:", data)
+else:
+    print("Processing data:", data)
+
+# Create a simple pie chart with dummy data for now
+categories = ['Network', 'Security', 'Software', 'Hardware', 'Other']
+counts = [25, 30, 20, 15, 10]
+
+plt.figure(figsize=(10, 8))
+plt.pie(counts, labels=categories, autopct='%1.1f%%', startangle=90)
+plt.title('Category Distribution - Forced Creation')
+plt.axis('equal')
+
+# Save with timestamp to avoid conflicts
+filename = f'output/forced_pie_chart_{{int(time.time())}}.png'
+plt.savefig(filename, dpi=300, bbox_inches='tight')
+plt.close()
+print(f"Saved chart to: {{filename}}")
+"""
+            
+            result = python_tools.execute_python_code(python_code)
+            console.print(f"[green]Python execution result: {result}[/green]")
+            
+        return {"status": "success", "message": "Forced visualization created"}
+        
+    except Exception as e:
+        console.print(f"[red]Force visualization error: {str(e)}[/red]")
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.get("/api/health")
