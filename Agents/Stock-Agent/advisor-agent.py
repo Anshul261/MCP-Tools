@@ -30,7 +30,7 @@ def get_model():
 # Agent 1: Investment Strategy Advisor (replaces market analyst)
 investment_strategist = Agent(
     model=get_model(),
-    tools=[YFinanceTools(stock_price=True, analyst_recommendations=True, company_info=True), DuckDuckGoTools()],
+    tools=[YFinanceTools(), DuckDuckGoTools()],
     description=dedent("""
         You are a senior investment strategist and financial advisor specializing in:
         - Portfolio construction and asset allocation
@@ -80,7 +80,7 @@ investment_strategist = Agent(
 # Agent 2: Risk Assessment Advisor
 risk_advisor = Agent(
     model=get_model(),
-    tools=[DuckDuckGoTools(), YFinanceTools(stock_price=True, company_info=True)],
+    tools=[DuckDuckGoTools(), YFinanceTools()],
     description=dedent("""
         You are a risk management specialist and financial advisor focusing on:
         - Personal risk tolerance assessment
@@ -130,7 +130,7 @@ risk_advisor = Agent(
 # Agent 3: Market Intelligence Analyst (enhanced news analyst)
 market_intelligence = Agent(
     model=get_model(),
-    tools=[DuckDuckGoTools(), Newspaper4kTools(), YFinanceTools(company_news=True)],
+    tools=[DuckDuckGoTools(), Newspaper4kTools(), YFinanceTools()],
     description=dedent("""
         You are a market intelligence analyst specializing in:
         - Economic trend analysis and forecasting
@@ -180,7 +180,7 @@ market_intelligence = Agent(
 # Agent 4: Financial Planning Advisor (enhanced fundamentals analyst)
 financial_planner = Agent(
     model=get_model(),
-    tools=[DuckDuckGoTools(), YFinanceTools(stock_price=True, analyst_recommendations=True)],
+    tools=[DuckDuckGoTools(), YFinanceTools()],
     description=dedent("""
         You are a comprehensive financial planning advisor specializing in:
         - Goal-based financial planning
