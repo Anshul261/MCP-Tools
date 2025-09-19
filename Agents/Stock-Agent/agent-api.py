@@ -11,6 +11,7 @@ from dotenv import load_dotenv
 from agno.team import Team
 from agno.tools.reasoning import ReasoningTools
 from agno.db.postgres import PostgresDb
+from agno.os import AgentOS
 
 load_dotenv()
 console = Console()
@@ -142,47 +143,19 @@ fast_stock_team = Team(
     stream=True
 )
 
-def main():
-    console.print(Panel.fit("Fast Stock Analysis Team Ready (With Memory)", style="bold green"))
-    console.print("Welcome! I'm your AI Stock Analysis Team with institutional memory.")
-    console.print("I learn from past analyses and track prediction accuracy over time.")
-    console.print("Provide a stock ticker for rapid analysis.")
-    console.print("Example: 'Analyze NVDA' or 'Quick analysis of TSLA'")
-    console.print("Type 'quit' to exit.\n")
+agent_os = AgentOS(
+    description="Example AgentOS",
+    agents=[intelligence_analyst, bull_bear_analyst, trading_manager],
+    teams=[fast_stock_team],
+)
+app = agent_os.get_app()
 
-    while True:
-        try:
-            question = input("You: ").strip()
-            
-            if question.lower() in ['quit', 'exit', 'bye']:
-                console.print("[green]Analysis session ended![/green]")
-                break
-                
-            if not question:
-                continue
-                
-            console.print("[blue]Fast analysis in progress (checking memory for previous insights)...[/blue]")
-            
-            # Start timing
-            import time
-            start_time = time.time()
-            
-            # Use print_response for streaming with memory integration
-            fast_stock_team.print_response(question)
-            
-            # Calculate and display timing
-            end_time = time.time()
-            duration = end_time - start_time
-            
-            console.print(f"\n[green]Analysis completed in {duration:.1f} seconds[/green]")
-            console.print("[dim]Memory updated with new insights for future reference[/dim]")
-            
-        except KeyboardInterrupt:
-            console.print("\n[green]Analysis session ended![/green]")
-            break
-        except Exception as e:
-            console.print(f"[red]Error: {e}[/red]")
-            console.print("Please try a different question.")
 
 if __name__ == "__main__":
-    main()
+    """Run our AgentOS.
+
+    You can see the configuration and available apps at:
+    http://localhost:7777/config
+
+    """
+    agent_os.serve(app="agent-api:app", reload=True)
