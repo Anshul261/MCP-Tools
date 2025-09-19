@@ -10,12 +10,22 @@ interface ChatAreaProps {
   selectedChat: string
 }
 
+interface AnalysisStep {
+  type: 'tool_call' | 'agent_switch' | 'progress'
+  title: string
+  description: string
+  timestamp: string
+  agent?: string
+  tool?: string
+}
+
 interface ChatMessage {
   id: number
   content: string
   isUser: boolean
   timestamp: string
   agentUsed?: string
+  steps?: AnalysisStep[]
 }
 
 export function ChatArea({ selectedChat }: ChatAreaProps) {
@@ -23,6 +33,8 @@ export function ChatArea({ selectedChat }: ChatAreaProps) {
   const [messages, setMessages] = useState<ChatMessage[]>([])
   const [isLoading, setIsLoading] = useState(false)
   const [sessionId, setSessionId] = useState<string>("")
+  const [currentSteps, setCurrentSteps] = useState<AnalysisStep[]>([])
+  const [currentProgress, setCurrentProgress] = useState<string>("")
 
   // Initialize session
   useEffect(() => {
@@ -112,10 +124,11 @@ export function ChatArea({ selectedChat }: ChatAreaProps) {
             for (const line of lines) {
               if (line.startsWith('event: ')) {
                 currentEvent = line.slice(7).trim()
-              } else if (line.startsWith('data: ') && currentEvent === 'RunContent') {
+              } else if (line.startsWith('data: ')) {
                 try {
                   const data = JSON.parse(line.slice(6))
-                  if (data.content) {
+
+                  if (currentEvent === 'RunContent' && data.content) {
                     accumulatedContent += data.content
                     // Update the message with accumulated content
                     setMessages(prev => prev.map(msg =>
@@ -123,6 +136,42 @@ export function ChatArea({ selectedChat }: ChatAreaProps) {
                         ? { ...msg, content: accumulatedContent }
                         : msg
                     ))
+                  } else if (currentEvent === 'TeamToolCallStarted' || currentEvent === 'ToolCallStarted') {
+                    // Add step for tool call started
+                    const step: AnalysisStep = {
+                      type: 'tool_call',
+                      title: `Starting ${data.tool?.tool_name || 'Tool Call'}`,
+                      description: data.tool?.tool_args ?
+                        `Args: ${JSON.stringify(data.tool.tool_args).substring(0, 100)}...` :
+                        'Executing tool...',
+                      timestamp: new Date().toLocaleTimeString(),
+                      tool: data.tool?.tool_name,
+                      agent: data.agent_id || data.team_name
+                    }
+                    setCurrentSteps(prev => [...prev, step])
+                    setCurrentProgress(`Executing ${data.tool?.tool_name || 'tool'}...`)
+                  } else if (currentEvent === 'TeamToolCallCompleted' || currentEvent === 'ToolCallCompleted') {
+                    // Update step for tool call completed
+                    const step: AnalysisStep = {
+                      type: 'tool_call',
+                      title: `Completed ${data.tool?.tool_name || 'Tool Call'}`,
+                      description: `Finished in ${data.tool?.metrics?.duration?.toFixed(2) || 'N/A'}s`,
+                      timestamp: new Date().toLocaleTimeString(),
+                      tool: data.tool?.tool_name,
+                      agent: data.agent_id || data.team_name
+                    }
+                    setCurrentSteps(prev => [...prev, step])
+                  } else if (currentEvent === 'RunStarted') {
+                    // Agent switch
+                    const step: AnalysisStep = {
+                      type: 'agent_switch',
+                      title: `Agent Started`,
+                      description: `Agent ${data.agent_id || 'Unknown'} is now processing`,
+                      timestamp: new Date().toLocaleTimeString(),
+                      agent: data.agent_id
+                    }
+                    setCurrentSteps(prev => [...prev, step])
+                    setCurrentProgress(`Agent processing...`)
                   }
                 } catch (parseError) {
                   // Ignore parse errors for incomplete chunks
@@ -131,8 +180,17 @@ export function ChatArea({ selectedChat }: ChatAreaProps) {
               }
             }
           }
+
+          // When streaming is complete, add steps to the final message
+          setMessages(prev => prev.map(msg =>
+            msg.id === aiMessageId
+              ? { ...msg, steps: currentSteps }
+              : msg
+          ))
         } finally {
           reader.releaseLock()
+          setCurrentSteps([])
+          setCurrentProgress("")
         }
       } else {
         // Fallback for non-streaming response
@@ -185,12 +243,29 @@ export function ChatArea({ selectedChat }: ChatAreaProps) {
       {/* Messages */}
       <div className="flex-1 overflow-y-auto p-4 space-y-4">
         {messages.map((msg) => (
-          <MessageBubble key={msg.id} content={msg.content} isUser={msg.isUser} timestamp={msg.timestamp} />
+          <MessageBubble
+            key={msg.id}
+            content={msg.content}
+            isUser={msg.isUser}
+            timestamp={msg.timestamp}
+            agentUsed={msg.agentUsed}
+            steps={msg.steps}
+          />
         ))}
         {isLoading && (
           <div className="flex items-center space-x-2 text-muted-foreground">
             <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-accent"></div>
-            <span>Analyzing...</span>
+            <span>{currentProgress || "Analyzing..."}</span>
+          </div>
+        )}
+        {currentSteps.length > 0 && isLoading && (
+          <div className="text-xs text-muted-foreground space-y-1">
+            {currentSteps.slice(-3).map((step, index) => (
+              <div key={index} className="flex items-center gap-2">
+                <div className="w-1 h-1 rounded-full bg-accent" />
+                <span>{step.title}</span>
+              </div>
+            ))}
           </div>
         )}
       </div>
