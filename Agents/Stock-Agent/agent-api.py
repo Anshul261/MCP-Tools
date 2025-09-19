@@ -16,7 +16,7 @@ from agno.os import AgentOS
 load_dotenv()
 console = Console()
 
-db_url = "postgresql+psycopg://ai:ai@localhost:5532/ai"
+db_url = "postgresql+psycopg://ai:ai@localhost:5533/ai"
 db = PostgresDb(db_url=db_url)
 
 def get_model():
@@ -144,18 +144,33 @@ fast_stock_team = Team(
 )
 
 agent_os = AgentOS(
-    description="Example AgentOS",
+    description="Stock Analysis AgentOS",
     agents=[intelligence_analyst, bull_bear_analyst, trading_manager],
     teams=[fast_stock_team],
 )
 app = agent_os.get_app()
 
+# Add CORS middleware for Next.js UI
+from fastapi.middleware.cors import CORSMiddleware
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["http://localhost:3000", "http://localhost:3001"],  # Next.js dev server
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 if __name__ == "__main__":
-    """Run our AgentOS.
+    """Run our AgentOS with Stock Analysis.
 
-    You can see the configuration and available apps at:
-    http://localhost:7777/config
-
+    AgentOS UI: http://localhost:7777/
+    Next.js UI: http://localhost:3000/ (run separately)
+    API Docs: http://localhost:7777/docs
     """
-    agent_os.serve(app="agent-api:app", reload=True)
+    console.print(Panel.fit("Stock Analysis AgentOS", style="bold green"))
+    console.print("🚀 AgentOS UI: http://localhost:7777/")
+    console.print("💬 Chat API: http://localhost:7777/api/chat")
+    console.print("📚 API Docs: http://localhost:7777/docs")
+    console.print("🎯 Next.js UI: http://localhost:3000/ (run separately)")
+
+    agent_os.serve(app="agent-api:app", host="0.0.0.0", port=7777, reload=True)

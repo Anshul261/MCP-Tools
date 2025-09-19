@@ -5,7 +5,7 @@ import { Sidebar } from "./sidebar"
 import { ChatArea } from "./chat-area"
 
 export function ChatInterface() {
-  const [selectedChat, setSelectedChat] = useState("Marketing Plan")
+  const [selectedChat, setSelectedChat] = useState("Stock Analysis")
 
   return (
     <div className="flex h-screen w-full bg-gradient-to-br from-background via-background to-slate-900/50">
