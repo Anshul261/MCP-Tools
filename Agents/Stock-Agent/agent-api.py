@@ -10,14 +10,15 @@ import os
 from dotenv import load_dotenv
 from agno.team import Team
 from agno.tools.reasoning import ReasoningTools
-from agno.db.postgres import PostgresDb
 from agno.os import AgentOS
 
 load_dotenv()
 console = Console()
+from agno.db.sqlite import SqliteDb
+# db_url = "postgresql+psycopg://ai:ai@localhost:5533/ai"
+# db = PostgresDb(db_url=db_url)
 
-db_url = "postgresql+psycopg://ai:ai@localhost:5533/ai"
-db = PostgresDb(db_url=db_url)
+db = SqliteDb(db_file="tmp/data.db")
 
 def get_model():
     return AzureOpenAI(
@@ -28,7 +29,7 @@ def get_model():
         azure_deployment=os.getenv("AZURE_OPENAI_DEPLOYMENT_NAME"),
     )
 
-# Combined Intelligence Analyst (replaces 4 separate analysts)
+# Combined Intelligence Analyst
 intelligence_analyst = Agent(
     model=get_model(),
     tools=[YFinanceTools(), DuckDuckGoTools(), Newspaper4kTools()],
@@ -45,7 +46,7 @@ intelligence_analyst = Agent(
     markdown=True,
 )
 
-# Bull vs Bear Debate Agent (replaces 3 separate debate agents)
+# Bull vs Bear Debate Agent
 bull_bear_analyst = Agent(
     model=get_model(),
     tools=[ReasoningTools()],
@@ -77,7 +78,7 @@ bull_bear_analyst = Agent(
     markdown=True,
 )
 
-# Trading & Risk Manager (replaces 3 separate execution agents)
+# Trading & Risk Manager
 trading_manager = Agent(
     model=get_model(),
     tools=[YFinanceTools(), ReasoningTools()],
@@ -97,7 +98,6 @@ trading_manager = Agent(
     markdown=True,
 )
 
-# STREAMLINED STOCK ANALYSIS TEAM (with memory preserved)
 fast_stock_team = Team(
     name="Fast Stock Analysis Team",
     db=db,
@@ -125,7 +125,6 @@ fast_stock_team = Team(
         Direct answer to user's question with relevant analysis and clear recommendation when appropriate.
 """
     ],
-    # Memory features restored - critical for institutional knowledge
     enable_user_memories=True,
     enable_session_summaries=True,
     enable_agentic_memory=True,
@@ -134,9 +133,9 @@ fast_stock_team = Team(
     tool_call_limit=10,
     share_member_interactions=True,
     stream_intermediate_steps=True,
-    add_datetime_to_context=True,  # Critical for financial analysis
-    add_name_to_context=True,  # Helps with team coordination
-    add_member_tools_to_context=True,  # Default but verify
+    add_datetime_to_context=True,
+    add_name_to_context=True,
+    add_member_tools_to_context=True,
 
     add_history_to_context=True,
     num_history_runs=3,
@@ -168,9 +167,9 @@ if __name__ == "__main__":
     API Docs: http://localhost:7777/docs
     """
     console.print(Panel.fit("Stock Analysis AgentOS", style="bold green"))
-    console.print("🚀 AgentOS UI: http://localhost:7777/")
-    console.print("💬 Chat API: http://localhost:7777/api/chat")
-    console.print("📚 API Docs: http://localhost:7777/docs")
-    console.print("🎯 Next.js UI: http://localhost:3000/ (run separately)")
+    console.print("AgentOS UI: http://localhost:7777/")
+    console.print("Chat API: http://localhost:7777/api/chat")
+    console.print("API Docs: http://localhost:7777/docs")
+    console.print("Next.js UI: http://localhost:3000/ (run separately)")
 
     agent_os.serve(app="agent-api:app", host="0.0.0.0", port=7777, reload=True)
