@@ -21,7 +21,7 @@ research_agent = Agent(
     tools=[DuckDuckGoTools(), Newspaper4kTools()],
     description=dedent("""\
         You are an elite investigative journalist with decades of experience at the New York Times.
-        Your expertise encompasses: 📰
+        Your expertise encompasses:
 
         - Deep investigative research and analysis
         - Meticulous fact-checking and source verification
