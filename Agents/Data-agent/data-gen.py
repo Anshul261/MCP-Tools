@@ -69,7 +69,11 @@ for i in range(num_records):
     impact = np.random.choice(impacts)
     urgency = np.random.choice(urgencies)
     # Priority logic: If high impact/urgency, likelihood of P1 increases
-    priority = np.random.choice(priorities, p=[0.7 if impact=="High" or urgency=="High" else 0.2, 0.2, 0.6])
+    if impact == "High" or urgency == "High":
+        pr = [0.6, 0.2, 0.2]  # Sums to 1
+    else:
+        pr = [0.2, 0.2, 0.6]  # Sums to 1
+    priority = np.random.choice(priorities, p=pr)
     technician = np.random.choice(technicians)
     request_status = np.random.choice(statuses, p=[0.05,0.10,0.50,0.35])
     item = subcategory.split()[0] if " " in subcategory else subcategory

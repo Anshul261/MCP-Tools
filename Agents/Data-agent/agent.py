@@ -31,7 +31,7 @@ from agno.db.postgres import PostgresDb
 load_dotenv()
 console = Console()
 
-db_url = "postgresql+psycopg://ai:ai@localhost:5532/ai"
+db_url = "postgresql+psycopg://ai:ai@localhost:5533/ai"
 db = PostgresDb(db_url=db_url)
 
 u_id="anshulraj@gmail.com"
@@ -99,7 +99,7 @@ def display_data_info(column_types):
 
 # Initialize data processor
 processor = DataProcessor()
-file_path = "Alpha-NOC-Reports-Jan-to-Apr-2025.xlsx"
+file_path = "realistic_ticket_data.xlsx"
 
 console.print(Panel.fit("Data Analysis System Initializing", style="bold blue"))
 
