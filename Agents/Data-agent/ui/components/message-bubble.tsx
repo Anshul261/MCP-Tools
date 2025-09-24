@@ -10,14 +10,25 @@ interface Visualization {
   created: number
 }
 
+interface AnalysisStep {
+  type: 'tool_call' | 'agent_switch' | 'progress' | 'visualization'
+  title: string
+  description: string
+  timestamp: string
+  agent?: string
+  tool?: string
+}
+
 interface MessageBubbleProps {
   content: string
   isUser: boolean
   timestamp: string
   visualizations?: Visualization[]
+  agentUsed?: string
+  steps?: AnalysisStep[]
 }
 
-export function MessageBubble({ content, isUser, timestamp, visualizations = [] }: MessageBubbleProps) {
+export function MessageBubble({ content, isUser, timestamp, visualizations = [], agentUsed, steps = [] }: MessageBubbleProps) {
   return (
     <div className={cn("flex gap-3 group", isUser ? "justify-end" : "justify-start")}>
       {!isUser && (
@@ -36,7 +47,42 @@ export function MessageBubble({ content, isUser, timestamp, visualizations = [] 
           )}
         >
           <p className="text-sm leading-relaxed whitespace-pre-wrap">{content}</p>
-          
+
+          {/* Display agent info */}
+          {!isUser && agentUsed && (
+            <div className="mt-2 text-xs text-muted-foreground">
+              🤖 {agentUsed}
+            </div>
+          )}
+
+          {/* Display analysis steps */}
+          {!isUser && steps && steps.length > 0 && (
+            <div className="mt-3 border-t border-border/50 pt-3">
+              <div className="text-xs font-medium text-muted-foreground mb-2">Analysis Steps:</div>
+              <div className="space-y-1">
+                {steps.map((step, index) => (
+                  <div key={index} className="flex items-start gap-2 text-xs">
+                    <div className={cn(
+                      "w-2 h-2 rounded-full mt-1 flex-shrink-0",
+                      step.type === 'tool_call' ? "bg-blue-400" :
+                      step.type === 'agent_switch' ? "bg-green-400" : "bg-gray-400"
+                    )} />
+                    <div className="flex-1">
+                      <div className="text-foreground">{step.title}</div>
+                      {step.description && (
+                        <div className="text-muted-foreground text-[10px] mt-0.5">{step.description}</div>
+                      )}
+                      {step.agent && (
+                        <div className="text-accent text-[10px]">Agent: {step.agent}</div>
+                      )}
+                    </div>
+                    <div className="text-muted-foreground text-[10px] whitespace-nowrap">{step.timestamp}</div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
           {/* Display visualizations */}
           {!isUser && visualizations.length > 0 && (
             <div className="mt-4 space-y-3">
