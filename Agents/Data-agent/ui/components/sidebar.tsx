@@ -13,7 +13,7 @@ interface SidebarProps {
 }
 
 export function Sidebar({ selectedChat, onSelectChat }: SidebarProps) {
-  const [expandedFolders, setExpandedFolders] = useState<string[]>(["Work"])
+  const [expandedFolders, setExpandedFolders] = useState<string[]>(["Data Analysis"])
 
   const toggleFolder = (folder: string) => {
     setExpandedFolders((prev) => (prev.includes(folder) ? prev.filter((f) => f !== folder) : [...prev, folder]))
@@ -21,20 +21,20 @@ export function Sidebar({ selectedChat, onSelectChat }: SidebarProps) {
 
   const folders = [
     {
-      name: "Work",
-      items: ["Marketing Plan", "Competitor Analysis", "Q2 Strategy"],
+      name: "Data Analysis",
+      items: ["Ticket Analysis", "Visualization Studio", "Team Status"],
     },
     {
-      name: "School",
-      items: ["Research Project", "Study Group", "Assignment Help"],
+      name: "Analytics",
+      items: ["Monthly Reports", "Trend Analysis", "Category Insights"],
     },
     {
-      name: "Personal",
-      items: ["Weekend Plans", "Recipe Ideas", "Book Notes"],
+      name: "Support Metrics",
+      items: ["SLA Performance", "Resolution Times", "Agent Workload"],
     },
   ]
 
-  const chats = ["Startup Pitch", "Daily Journal", "Coding Help", "Travel Itinerary", "Book Summary", "Grocery List"]
+  const chats = ["Data Explorer", "Chart Generator", "Insights Dashboard", "Query Builder", "Report Builder"]
 
   return (
     <div className="w-80 h-full glass-strong bg-sidebar/80 border-r border-sidebar-border flex flex-col">
@@ -44,7 +44,7 @@ export function Sidebar({ selectedChat, onSelectChat }: SidebarProps) {
           <div className="w-8 h-8 rounded-lg bg-accent flex items-center justify-center">
             <Sun className="w-4 h-4 text-accent-foreground" />
           </div>
-          <h1 className="font-semibold text-white">ChatGlass</h1>
+          <h1 className="font-semibold text-white">Data AgentOS</h1>
         </div>
 
         <Button
