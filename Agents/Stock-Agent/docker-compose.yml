@@ -1,0 +1,89 @@
+services:
+  # Agent API (FastAPI + AgentOS) - Now with SQLite
+  agent-api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: stock-agent-api
+    environment:
+      # Azure OpenAI configuration (add your values)
+      AZURE_OPENAI_API_KEY: ${AZURE_OPENAI_API_KEY}
+      AZURE_OPENAI_ENDPOINT: ${AZURE_OPENAI_ENDPOINT}
+      AZURE_OPENAI_DEPLOYMENT_NAME: ${AZURE_OPENAI_DEPLOYMENT_NAME}
+      OPENAI_API_VERSION: ${OPENAI_API_VERSION:-2024-02-15-preview}
+      
+      # Additional environment variables
+      PYTHONPATH: /app
+    ports:
+      - "7777:7777"
+    volumes:
+      # Mount SQLite database directory for persistence
+      - sqlite_data:/app/tmp
+      - ./agent-api.py:/app/agent-api.py:ro
+      - ./base-agent.py:/app/base-agent.py:ro
+      - ./improved-agent.py:/app/improved-agent.py:ro
+      - ./advisor-agent.py:/app/advisor-agent.py:ro
+    networks:
+      - stock-agent-network
+    healthcheck:
+      test: ["CMD", "python", "-c", "import requests; requests.get('http://localhost:7777/health')"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  # Next.js UI (Development Mode)
+  nextjs-ui:
+    build:
+      context: ./ui
+      dockerfile: Dockerfile
+    container_name: stock-agent-ui
+    environment:
+      NODE_ENV: development
+      NEXT_TELEMETRY_DISABLED: 1
+      # API endpoint for the Next.js app to connect to agent-api
+      NEXT_PUBLIC_API_URL: http://localhost/api
+    ports:
+      - "3000:3000"
+    depends_on:
+      - agent-api
+    volumes:
+      # Enable hot reload by mounting source code
+      - ./ui:/app
+      - /app/node_modules
+      - /app/.next
+    networks:
+      - stock-agent-network
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:3000/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Nginx reverse proxy
+  nginx:
+    image: nginx:alpine
+    container_name: stock-agent-nginx
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf:ro
+    depends_on:
+      - nextjs-ui
+      - agent-api
+    networks:
+      - stock-agent-network
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+volumes:
+  sqlite_data:
+    driver: local
+
+networks:
+  stock-agent-network:
+    driver: bridge

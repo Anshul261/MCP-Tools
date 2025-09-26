@@ -1,0 +1,167 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ticket Dashboard</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #f4f7fa;
+            margin: 0;
+            padding: 20px;
+            color: #333;
+        }
+        h1 {
+            text-align: center;
+            color: #2c3e50;
+            margin-bottom: 40px;
+        }
+        .dashboard {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+            gap: 30px;
+        }
+        .card {
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 2px 10px rgb(0 0 0 / 0.1);
+            padding: 25px;
+            max-width: 460px;
+            flex: 1 1 400px;
+        }
+        .card h2 {
+            font-weight: 700;
+            margin-bottom: 20px;
+            color: #34495e;
+            font-size: 1.5rem;
+            text-align: center;
+        }
+        canvas {
+            display: block;
+            margin: 0 auto;
+            max-width: 100%;
+        }
+        .insights {
+            margin-top: 20px;
+            font-size: 0.95rem;
+            color: #666;
+            line-height: 1.5;
+            text-align: center;
+        }
+        @media (max-width: 768px) {
+            .dashboard {
+                flex-direction: column;
+                align-items: center;
+            }
+        }
+    </style>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+    <h1>IT Ticket Dashboard</h1>
+    <div class="dashboard">
+        <section class="card">
+            <h2>Ticket Category Breakdown</h2>
+            <canvas id="categoryChart"></canvas>
+            <p class="insights">The majority of tickets fall under the categories of Microsoft, Reports, and End User Support, indicating these are the main areas driving ticket volume.</p>
+        </section>
+        <section class="card">
+            <h2>Ticket Type Breakdown</h2>
+            <canvas id="typeChart"></canvas>
+            <p class="insights">Incidents and Service Requests constitute the bulk of ticket types, highlighting the focus on problem resolution and service fulfillment.</p>
+        </section>
+    </div>
+    <script>
+        const categoryCtx = document.getElementById('categoryChart').getContext('2d');
+        const typeCtx = document.getElementById('typeChart').getContext('2d');
+
+        const categoryChart = new Chart(categoryCtx, {
+            type: 'pie',
+            data: {
+                labels: ["Microsoft", "Reports", "End User Support", "Information Security", "Systems", "Network & Security", "Patch Management", "Application", "Telecom", "Preventive Maintenance", "License Changes", "Cloud Services", "Infra Monitoring", "Microsoft Dynamics 365 - Barton", "Procurement"],
+                datasets: [{
+                    label: 'Ticket Counts',
+                    data: [1356, 1021, 873, 391, 349, 170, 135, 66, 40, 26, 14, 11, 8, 6, 3],
+                    backgroundColor: [
+                        '#3366cc','#dc3912','#ff9900','#109618','#990099','#0099c6','#dd4477',
+                        '#66aa00','#b82e2e','#316395','#994499','#22aa99','#aaaa11','#6633cc','#e67300'
+                    ],
+                    borderWidth: 1
+                }]
+            },
+            options: {
+                responsive: true,
+                plugins: {
+                    legend: {
+                        position: 'right',
+                        labels: { font: { size: 14 } }
+                    },
+                    tooltip: {
+                        callbacks: {
+                            label: function(context) {
+                                let label = context.label || '';
+                                let value = context.parsed || 0;
+                                return `${label}: ${value} tickets`;
+                            }
+                        }
+                    }
+                }
+            }
+        });
+
+        const typeChart = new Chart(typeCtx, {
+            type: 'bar',
+            data: {
+                labels: ["Incident", "Service Request", "Preventive Maintenance", "Security Incident", "Request For Information", "Change Requests"],
+                datasets: [{
+                    label: 'Ticket Counts',
+                    data: [2245, 2180, 20, 16, 5, 3],
+                    backgroundColor: '#3498db',
+                    borderRadius: 5
+                }]
+            },
+            options: {
+                responsive: true,
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        ticks: { font: { size: 14 }},
+                        title: {
+                            display: true,
+                            text: 'Count',
+                            font: { size: 16, weight: 'bold' }
+                        }
+                    },
+                    x: {
+                        ticks: { font: { size: 14 }},
+                        title: {
+                            display: true,
+                            text: 'Ticket Type',
+                            font: { size: 16, weight: 'bold' }
+                        }
+                    }
+                },
+                plugins: {
+                    legend: {
+                        display: false
+                    },
+                    tooltip: {
+                        callbacks: {
+                            label: function(context) {
+                                return `${context.parsed.y} tickets`;
+                            }
+                        }
+                    }
+                },
+                animation: {
+                    duration: 1000,
+                    easing: 'easeOutQuart'
+                }
+            }
+        });
+    </script>
+</body>
+</html>
