@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { MessageBubble } from "./message-bubble"
 import { Send, Plus, Copy, RotateCcw, Loader2, ImageIcon, Zap } from "lucide-react"
+import { Streamdown } from "streamdown"
 
 interface Visualization {
   filename: string
@@ -52,8 +53,8 @@ export function ChatArea({ selectedChat }: ChatAreaProps) {
 • "What insights can you provide about our support data?"
 
 **Header Buttons:**
-📊 - Show recent visualizations
-⚡ - Force create pie chart (backup if agents fail)
+Chart Icon - Show recent visualizations
+Lightning Icon - Force create pie chart (backup if agents fail)
 
 Start by typing your question below.`,
       isUser: false,

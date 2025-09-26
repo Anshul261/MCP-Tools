@@ -1,7 +1,8 @@
-import { Copy, RotateCcw, ExternalLink } from "lucide-react"
+import { Copy, RotateCcw, ExternalLink, Bot, BarChart3, TrendingUp } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { cn } from "@/lib/utils"
+import { Streamdown } from "streamdown"
 
 interface Visualization {
   filename: string
@@ -46,12 +47,14 @@ export function MessageBubble({ content, isUser, timestamp, visualizations = [],
               : "bg-card/60 text-card-foreground border-border shadow-border/10",
           )}
         >
-          <p className="text-sm leading-relaxed whitespace-pre-wrap">{content}</p>
+          <div className="text-sm leading-relaxed prose prose-sm max-w-none prose-headings:text-foreground prose-p:text-foreground prose-strong:text-foreground prose-code:text-foreground prose-pre:bg-muted prose-pre:border prose-pre:border-border">
+            <Streamdown>{content}</Streamdown>
+          </div>
 
           {/* Display agent info */}
           {!isUser && agentUsed && (
             <div className="mt-2 text-xs text-muted-foreground">
-              🤖 {agentUsed}
+              <Bot className="w-3 h-3 inline mr-1" />{agentUsed}
             </div>
           )}
 
@@ -90,7 +93,7 @@ export function MessageBubble({ content, isUser, timestamp, visualizations = [],
                 <div key={index} className="border rounded-lg p-3 bg-background/50">
                   <div className="flex items-center justify-between mb-2">
                     <span className="text-xs font-medium text-muted-foreground">
-                      {viz.type === 'image' ? '📊 Chart' : '📈 Interactive Dashboard'}
+                      {viz.type === 'image' ? <><BarChart3 className="w-3 h-3 inline mr-1" />Chart</> : <><TrendingUp className="w-3 h-3 inline mr-1" />Interactive Dashboard</>}
                     </span>
                     <Button 
                       variant="ghost" 
