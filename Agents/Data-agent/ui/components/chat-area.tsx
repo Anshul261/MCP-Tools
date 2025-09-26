@@ -31,6 +31,7 @@ interface Message {
   visualizations?: Visualization[]
   agentUsed?: string
   steps?: AnalysisStep[]
+  visualizationMode?: 'dashboard' | 'single_chart' | null
 }
 
 interface ChatAreaProps {
@@ -143,14 +144,35 @@ Start by typing your question below.`,
     }
   }
 
+  const detectVisualizationMode = (messageText: string): 'dashboard' | 'single_chart' | null => {
+    const text = messageText.toLowerCase()
+
+    // Dashboard mode keywords
+    const dashboardKeywords = ['dashboard', 'comprehensive analysis', 'overview', 'complete view', 'full analysis', 'multiple charts', 'comprehensive', 'complete']
+    const isDashboard = dashboardKeywords.some(keyword => text.includes(keyword))
+
+    if (isDashboard) return 'dashboard'
+
+    // Single chart mode keywords
+    const singleChartKeywords = ['chart', 'graph', 'plot', 'show me', 'create a']
+    const isSingleChart = singleChartKeywords.some(keyword => text.includes(keyword))
+
+    if (isSingleChart) return 'single_chart'
+
+    return null
+  }
+
   const handleSend = async () => {
     if (!message.trim() || isLoading) return
+
+    const detectedMode = detectVisualizationMode(message)
 
     const userMessage: Message = {
       id: Date.now(),
       content: message,
       isUser: true,
       timestamp: new Date().toLocaleTimeString(),
+      visualizationMode: detectedMode,
     }
 
     setMessages(prev => [...prev, userMessage])
@@ -190,6 +212,7 @@ Start by typing your question below.`,
           isUser: false,
           timestamp: new Date().toLocaleTimeString(),
           agentUsed: "Data Analysis Team",
+          visualizationMode: detectedMode,
         }
         setMessages(prev => [...prev, initialAiMessage])
 
@@ -403,6 +426,7 @@ Start by typing your question below.`,
             visualizations={msg.visualizations}
             agentUsed={msg.agentUsed}
             steps={msg.steps}
+            visualizationMode={msg.visualizationMode}
           />
         ))}
         {isLoading && (
