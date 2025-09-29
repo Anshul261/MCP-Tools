@@ -299,12 +299,13 @@ Start by typing your question below.`,
             ))
           }, 2000)
 
-          // Additional fallback: if response mentions creating visualizations, force check
-          if (accumulatedContent.toLowerCase().includes('created') ||
-              accumulatedContent.toLowerCase().includes('saved') ||
-              accumulatedContent.toLowerCase().includes('chart') ||
-              accumulatedContent.toLowerCase().includes('visualization') ||
-              accumulatedContent.toLowerCase().includes('.png')) {
+          // Additional fallback: only trigger on specific file creation indicators
+          if (accumulatedContent.toLowerCase().includes('saved to output/') ||
+              accumulatedContent.toLowerCase().includes('created and saved') ||
+              accumulatedContent.toLowerCase().includes('.png to output/') ||
+              accumulatedContent.toLowerCase().includes('.html to output/') ||
+              accumulatedContent.toLowerCase().includes('file saved to') ||
+              accumulatedContent.toLowerCase().includes('saved the file')) {
             setTimeout(async () => {
               const additionalViz = await find_new_visualizations_after_message()
               if (additionalViz.length > 0) {
