@@ -289,9 +289,13 @@ Start by typing your question below.`,
             }
           }
 
-          // When streaming is complete, add steps to the final message and check for visualizations
+          // When streaming is complete, add steps to the final message and check for visualizations only if needed
           setTimeout(async () => {
-            const newViz = await find_new_visualizations_after_message()
+            let newViz: Visualization[] = []
+            // Only check for visualizations if the user requested them
+            if (detectedMode) {
+              newViz = await find_new_visualizations_after_message()
+            }
             setMessages(prev => prev.map(msg =>
               msg.id === aiMessageId
                 ? { ...msg, steps: [...currentSteps], visualizations: newViz }
@@ -299,13 +303,15 @@ Start by typing your question below.`,
             ))
           }, 2000)
 
-          // Additional fallback: only trigger on specific file creation indicators
-          if (accumulatedContent.toLowerCase().includes('saved to output/') ||
+          // Additional fallback: only trigger on specific file creation indicators AND if no visualizations detected yet
+          const hasFileCreationIndicators = accumulatedContent.toLowerCase().includes('saved to output/') ||
               accumulatedContent.toLowerCase().includes('created and saved') ||
               accumulatedContent.toLowerCase().includes('.png to output/') ||
               accumulatedContent.toLowerCase().includes('.html to output/') ||
               accumulatedContent.toLowerCase().includes('file saved to') ||
-              accumulatedContent.toLowerCase().includes('saved the file')) {
+              accumulatedContent.toLowerCase().includes('saved the file')
+
+          if (hasFileCreationIndicators) {
             setTimeout(async () => {
               const additionalViz = await find_new_visualizations_after_message()
               if (additionalViz.length > 0) {
@@ -335,17 +341,19 @@ Start by typing your question below.`,
         }
         setMessages(prev => [...prev, aiMessage])
 
-        // Also check for visualizations in non-streaming mode
-        setTimeout(async () => {
-          const newViz = await find_new_visualizations_after_message()
-          if (newViz.length > 0) {
-            setMessages(prev => prev.map(msg =>
-              msg.id === aiMessageId
-                ? { ...msg, visualizations: newViz }
-                : msg
-            ))
-          }
-        }, 2000)
+        // Also check for visualizations in non-streaming mode only if visualizations were requested
+        if (detectedMode) {
+          setTimeout(async () => {
+            const newViz = await find_new_visualizations_after_message()
+            if (newViz.length > 0) {
+              setMessages(prev => prev.map(msg =>
+                msg.id === aiMessageId
+                  ? { ...msg, visualizations: newViz }
+                  : msg
+              ))
+            }
+          }, 2000)
+        }
       }
     } catch (error) {
       console.error("Error sending message:", error)
