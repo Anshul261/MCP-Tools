@@ -33,7 +33,13 @@ console = Console()
 
 db_url = "postgresql+psycopg://ai:ai@localhost:5533/ai"
 db = PostgresDb(db_url=db_url)
-
+llm=AzureOpenAI(
+        id=os.getenv("AZURE_OPENAI_DEPLOYMENT_NAME"),
+        api_key=os.getenv("AZURE_OPENAI_API_KEY"),
+        api_version=os.getenv("OPENAI_API_VERSION", "2024-02-15-preview"),
+        azure_endpoint=os.getenv("AZURE_OPENAI_ENDPOINT"),
+        azure_deployment=os.getenv("AZURE_OPENAI_DEPLOYMENT_NAME"),
+    )
 u_id="anshulraj@gmail.com"
 
 # API Models
@@ -101,10 +107,26 @@ def display_data_info(column_types):
 processor = DataProcessor()
 file_path = "realistic_ticket_data.xlsx"
 
-console.print(Panel.fit("Data Analysis System Initializing", style="bold blue"))
+# Initialize data only once using file-based flag to survive reloads
+data_flag_file = ".data_initialized"
+csv_path = file_path.replace('.xlsx', '.csv').replace('.xls', '.csv')
 
-csv_path, column_types = processor.clean_and_infer_types(file_path)
-display_data_info(column_types)
+if not os.path.exists(data_flag_file) or not os.path.exists(csv_path):
+    console.print(Panel.fit("Data Analysis System Initializing", style="bold blue"))
+    csv_path, column_types = processor.clean_and_infer_types(file_path)
+    display_data_info(column_types)
+    # Create flag file to prevent reprocessing
+    with open(data_flag_file, 'w') as f:
+        f.write("initialized")
+else:
+    # Reuse already processed data - load column types from CSV
+    if os.path.exists(csv_path):
+        df = pd.read_csv(csv_path, nrows=0)  # Read only headers for dtype inference
+        column_types = df.dtypes.to_dict()
+        console.print(f"[green]Reusing processed data: {csv_path}[/green]")
+    else:
+        # Fallback if CSV doesn't exist
+        csv_path, column_types = processor.clean_and_infer_types(file_path)
 
 # Initialize tools
 # duckdb_tools = DuckDbTools(create_tables=False, export_tables=False, summarize_tables=False)
@@ -118,13 +140,7 @@ duckdb_tools.create_table_from_path(path=csv_path, table="data")
 # Data Analysis Agent - specialized for querying and basic analysis
 data_analyst = Agent(
     name="Data Analyst",
-    model=AzureOpenAI(
-        id=os.getenv("AZURE_OPENAI_DEPLOYMENT_NAME"),
-        api_key=os.getenv("AZURE_OPENAI_API_KEY"),
-        api_version=os.getenv("OPENAI_API_VERSION", "2024-02-15-preview"),
-        azure_endpoint=os.getenv("AZURE_OPENAI_ENDPOINT"),
-        azure_deployment=os.getenv("AZURE_OPENAI_DEPLOYMENT_NAME"),
-    ),
+    model=llm,
     tools=[duckdb_tools],
     instructions=[
         "You are a data analyst with access to a 'data' table containing ticket/support request data.",
@@ -133,19 +149,19 @@ data_analyst = Agent(
         "Provide detailed analysis with specific numbers and insights from the data.",
         "When analyzing trends, use date functions on the 'Created Time' column.",
         "Focus on real patterns in the actual data, not hypothetical scenarios.",
+        "",
+        "For insight requests, provide a comprehensive text summary with key findings:",
+        "- Execute 3-5 relevant SQL queries to gather key metrics",
+        "- Summarize findings in clear, actionable insights",
+        "- Include specific numbers and percentages",
+        "- Stop after providing insights - do not create visualizations unless specifically requested",
     ],
 )
 
 # Visualization Agent - specialized for creating charts
 viz_specialist = Agent(
     name="Visualization Specialist",
-    model=AzureOpenAI(
-        id=os.getenv("AZURE_OPENAI_DEPLOYMENT_NAME"),
-        api_key=os.getenv("AZURE_OPENAI_API_KEY"),
-        api_version=os.getenv("OPENAI_API_VERSION", "2024-02-15-preview"),
-        azure_endpoint=os.getenv("AZURE_OPENAI_ENDPOINT"),
-        azure_deployment=os.getenv("AZURE_OPENAI_DEPLOYMENT_NAME"),
-    ),
+    model=llm,
     tools=[python_tools, duckdb_tools],
     instructions=[
         "You are a visualization specialist. You MUST create actual files when users request visualizations.",
@@ -192,52 +208,48 @@ viz_specialist = Agent(
 analysis_team = Team(
     name="Data Analysis Team",
     db=db,
-    model=AzureOpenAI(
-        id=os.getenv("AZURE_OPENAI_DEPLOYMENT_NAME"),
-        api_key=os.getenv("AZURE_OPENAI_API_KEY"),
-        api_version=os.getenv("OPENAI_API_VERSION", "2024-02-15-preview"),
-        azure_endpoint=os.getenv("AZURE_OPENAI_ENDPOINT"),
-        azure_deployment=os.getenv("AZURE_OPENAI_DEPLOYMENT_NAME"),
-    ),
+    model=llm,
     members=[data_analyst, viz_specialist],
     tools=[reasoning_tools],
     instructions=[
         f"You have access to a 'data' table with {len(column_types)} columns and 4469 rows of ticket/support data.",
         f"Column types: {column_types}",
 
-        "VISUALIZATION MODE DETECTION:",
-        "DASHBOARD REQUESTS: 'dashboard', 'comprehensive analysis', 'overview', 'complete view', 'full analysis', 'multiple metrics', complex multi-faceted questions",
-        "SINGLE CHART REQUESTS: 'chart', 'graph', 'plot', 'show me [specific metric]', focused single-metric questions",
+        "REQUEST TYPE DETECTION:",
+        "INSIGHTS/ANALYSIS REQUESTS: 'insights', 'analysis', 'what can you tell me', 'patterns', 'trends', 'summary' → Data Analyst provides text-based insights",
+        "DASHBOARD REQUESTS: 'dashboard', 'comprehensive dashboard', 'overview dashboard', 'create dashboard' → Create HTML dashboard",
+        "SINGLE CHART REQUESTS: 'chart', 'graph', 'plot', 'show me [specific metric] chart' → Create single visualization",
 
-        "CRITICAL WORKFLOW FOR DASHBOARD MODE:",
+        "WORKFLOW FOR INSIGHTS/ANALYSIS MODE:",
+        "1. Data Analyst: Query relevant datasets and provide comprehensive text-based insights",
+        "2. Include specific numbers, percentages, and key findings",
+        "3. NO visualization creation required - just provide insights in text format",
+
+        "WORKFLOW FOR DASHBOARD MODE:",
         "1. Data Analyst: Query multiple related datasets (category breakdown, trends, status, etc.)",
         "2. Visualization Specialist: Create comprehensive HTML dashboard with 3-4 charts using dashboard_templates.py",
         "3. Include KPI cards, insights, and professional multi-chart layout",
         "4. Save as HTML file with descriptive name like 'comprehensive_dashboard.html'",
 
-        "CRITICAL WORKFLOW FOR SINGLE CHART MODE:",
+        "WORKFLOW FOR SINGLE CHART MODE:",
         "1. Data Analyst: Query specific dataset for the requested metric",
         "2. Visualization Specialist: Create focused matplotlib visualization",
         "3. Include analysis insights with specific data points",
         "4. Save as PNG file with descriptive name",
 
-        "MANDATORY REQUIREMENTS:",
-        "- ALWAYS detect visualization mode first",
-        "- Data Analyst: ALWAYS query actual data table with SQL first",
-        "- Visualization Specialist: ALWAYS execute Python code to create and save files",
+        "IMPORTANT RULES:",
+        "- For insight/analysis questions: ONLY Data Analyst responds with text insights, NO files created",
+        "- For dashboard requests: Create HTML dashboards with multiple charts",
+        "- For chart requests: Create single PNG visualizations",
+        "- Always query actual data first before providing insights or creating visualizations",
         "- Provide concrete insights with specific numbers and percentages",
-        "- Dashboard mode: Create multi-chart HTML files with Chart.js",
-        "- Single mode: Create focused PNG charts with matplotlib",
-        "- Never just describe - always create actual files",
 
         "EXAMPLES:",
-        "Dashboard: 'Give me a comprehensive analysis' → HTML with 3-4 charts",
-        "Single: 'Show me monthly ticket trends' → PNG line chart",
-        "Dashboard: 'Create an overview dashboard' → Multi-chart HTML",
-        "Single: 'Make a pie chart of categories' → PNG pie chart",
+        "Insights: 'What insights can you provide?' → Data Analyst text response only",
+        "Dashboard: 'Create a dashboard' → HTML with 3-4 charts",
+        "Single: 'Show me a pie chart of categories' → PNG pie chart",
 
         "Focus on time-based trends using the Created Time column for monthly/daily analysis.",
-        "The UI will automatically display created visualizations to users.",
     ],
     enable_user_memories=True,
     enable_session_summaries=True,
