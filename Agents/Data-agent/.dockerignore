@@ -1,0 +1,77 @@
+# Git
+.git
+.gitignore
+
+# Docker
+Dockerfile
+docker-compose.yml
+.dockerignore
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.python-version
+*.egg-info/
+.pytest_cache/
+
+# Environment
+.env.local
+.env.production
+.env.example
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Logs
+logs/
+*.log
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Build artifacts
+build/
+dist/
+
+# Temporary files
+*.tmp
+*.bak
+
+# Documentation
+*.md
+README*
+
+# Node modules (shouldn't be here but just in case)
+node_modules/
+
+# UI directory (build separately)
+ui/
+
+# nginx config (not needed in backend container)
+nginx/
+
+# Data files that should be volume mounted
+output/
+converted_docs/
+documents/
+*.csv
+*.xlsx
+*.xls
+*.docx
+*.doc
+*.pptx
+*.ppt
+*.pdf
+*.json
+*.yaml
+.data_initialized
+
+# Keep requirements.txt and data files for Docker build
+!requirements.txt
+!realistic_ticket_data.xlsx

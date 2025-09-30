@@ -1,0 +1,54 @@
+services:
+  data-agent-backend:
+    build: .
+    container_name: data-agent-backend
+    ports:
+      - "7778:7778"
+    env_file:
+      - .env
+    environment:
+      - DB_HOST=agno_pgvector
+      - DB_PORT=5432
+      - DB_USER=ai
+      - DB_PASSWORD=ai
+      - DB_NAME=ai
+    volumes:
+      - ./output:/app/output
+      - ./logs:/app/logs
+      - ./.data_initialized:/app/.data_initialized
+    networks:
+      - data-agent-network
+      - ai-search-mcp_default
+
+  data-agent-ui:
+    build: ./ui
+    container_name: data-agent-ui
+    ports:
+      - "3001:3001"
+    volumes:
+      - ./ui:/app
+      - /app/node_modules
+    environment:
+      - NODE_ENV=development
+      - NEXT_PUBLIC_API_URL=http://localhost/api
+    networks:
+      - data-agent-network
+
+  nginx:
+    image: nginx:alpine
+    container_name: data-agent-nginx
+    ports:
+      - "80:80"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf
+    depends_on:
+      - data-agent-backend
+      - data-agent-ui
+    networks:
+      - data-agent-network
+
+networks:
+  data-agent-network:
+    driver: bridge
+  ai-search-mcp_default:
+    external: true

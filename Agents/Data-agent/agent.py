@@ -31,7 +31,15 @@ from agno.db.postgres import PostgresDb
 load_dotenv()
 console = Console()
 
-db_url = "postgresql+psycopg://ai:ai@localhost:5533/ai"
+# Build database URL from environment variables
+db_host = os.getenv("DB_HOST", "localhost")
+db_port = os.getenv("DB_PORT", "5533")
+db_user = os.getenv("DB_USER", "ai")
+db_password = os.getenv("DB_PASSWORD", "ai")
+db_name = os.getenv("DB_NAME", "ai")
+
+db_url = f"postgresql+psycopg://{db_user}:{db_password}@{db_host}:{db_port}/{db_name}"
+console.print(f"[blue]Connecting to database: {db_user}@{db_host}:{db_port}/{db_name}[/blue]")
 db = PostgresDb(db_url=db_url)
 llm=AzureOpenAI(
         id=os.getenv("AZURE_OPENAI_DEPLOYMENT_NAME"),
