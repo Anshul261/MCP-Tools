@@ -71,7 +71,8 @@ Start by typing your question below.`,
 
   const handleShowRecentVisualizations = async () => {
     try {
-      const response = await fetch('http://localhost:7777/api/visualizations')
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:7777'
+      const response = await fetch(`${apiUrl}/visualizations`)
       if (response.ok) {
         const data = await response.json()
         if (data.visualizations && data.visualizations.length > 0) {
@@ -116,7 +117,8 @@ Start by typing your question below.`,
 
   const handleForceVisualization = async () => {
     try {
-      const response = await fetch('http://localhost:7777/api/force-visualization', {
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:7777'
+      const response = await fetch(`${apiUrl}/force-visualization`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ type: 'pie', query: 'SELECT Category, COUNT(*) as count FROM data GROUP BY Category' })
@@ -125,7 +127,7 @@ Start by typing your question below.`,
       if (response.ok) {
         // Wait a moment then fetch latest visualizations
         setTimeout(async () => {
-          const vizResponse = await fetch('http://localhost:7777/api/visualizations')
+          const vizResponse = await fetch(`${apiUrl}/visualizations`)
           if (vizResponse.ok) {
             const data = await vizResponse.json()
             const vizMessage: Message = {
@@ -188,7 +190,8 @@ Start by typing your question below.`,
       formData.append('stream', 'true')
       formData.append('monitor', 'true')
 
-      const response = await fetch("http://localhost:7777/teams/data-analysis-team/runs", {
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:7777'
+      const response = await fetch(`${apiUrl}/teams/data-analysis-team/runs`, {
         method: "POST",
         body: formData,
       })
@@ -359,7 +362,7 @@ Start by typing your question below.`,
       console.error("Error sending message:", error)
       const errorMessage: Message = {
         id: Date.now() + 1,
-        content: "Sorry, I'm having trouble connecting to the Data Analysis Team. Please make sure the AgentOS server is running on port 7777.",
+        content: "Sorry, I'm having trouble connecting to the Data Analysis Team. Please make sure the AgentOS server is running.",
         isUser: false,
         timestamp: new Date().toLocaleTimeString(),
         agentUsed: "System Error"
@@ -372,7 +375,8 @@ Start by typing your question below.`,
 
   const find_new_visualizations_after_message = async (): Promise<Visualization[]> => {
     try {
-      const response = await fetch('http://localhost:7777/api/visualizations')
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:7777'
+      const response = await fetch(`${apiUrl}/visualizations`)
       if (response.ok) {
         const data = await response.json()
         // Get visualizations from the last 5 minutes (300 seconds)

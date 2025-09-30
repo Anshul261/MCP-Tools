@@ -113,7 +113,7 @@ export function MessageBubble({ content, isUser, timestamp, visualizations = [],
                       variant="ghost" 
                       size="sm" 
                       className="h-6 w-6 p-0"
-                      onClick={() => window.open(`http://localhost:7777${viz.url}`, '_blank')}
+                      onClick={() => window.open(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:7777'}${viz.url}`, '_blank')}
                     >
                       <ExternalLink className="w-3 h-3" />
                     </Button>
@@ -121,7 +121,7 @@ export function MessageBubble({ content, isUser, timestamp, visualizations = [],
                   
                   {viz.type === 'image' ? (
                     <img 
-                      src={`http://localhost:7777${viz.url}`}
+                      src={`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:7777'}${viz.url}`}
                       alt={viz.filename}
                       className="w-full h-auto rounded border"
                       onError={(e) => {
@@ -138,7 +138,7 @@ export function MessageBubble({ content, isUser, timestamp, visualizations = [],
                         variant="outline"
                         size="sm"
                         className="border-blue-300 text-blue-700 hover:bg-blue-100"
-                        onClick={() => window.open(`http://localhost:7777${viz.url}`, '_blank')}
+                        onClick={() => window.open(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:7777'}${viz.url}`, '_blank')}
                       >
                         <ExternalLink className="w-3 h-3 mr-1" />
                         Open Dashboard
