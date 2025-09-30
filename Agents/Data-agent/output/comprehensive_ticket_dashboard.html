@@ -1,156 +1,289 @@
-
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Comprehensive Ticket Dashboard</title>
-<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-<style>
-  body { font-family: Arial, sans-serif; margin: 20px; background-color: #f7f9fc; }
-  h1 { text-align: center; color: #333; }
-  .dashboard { display: grid; grid-template-columns: repeat(2, 1fr); gap: 30px; max-width: 1200px; margin: auto; }
-  .card { background: white; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); padding: 20px; }
-  .kpi { display: flex; justify-content: space-around; margin-bottom: 40px; max-width: 1200px; margin-left: auto; margin-right: auto; }
-  .kpi-card { background: #007bff; color: white; border-radius: 8px; padding: 20px; width: 30%; text-align: center; box-shadow: 0 2px 5px rgba(0,0,0,0.15);}
-  .kpi-card h2 { margin: 0 0 10px; font-size: 2.5em; }
-  .kpi-card p { margin: 0; font-weight: bold; font-size: 1.1em; }
-  .insights { max-width: 1200px; margin: 30px auto; background: #e9ecef; padding: 20px; border-radius: 8px; }
-  canvas { background: #fff; border-radius: 8px; }
-</style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Support Ticket Analysis Dashboard</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #f5f6fa;
+            color: #333;
+            line-height: 1.6;
+        }
+        
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        
+        .header {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        
+        .header h1 {
+            color: #2c3e50;
+            font-size: 2.5rem;
+            margin-bottom: 10px;
+        }
+        
+        .header p {
+            color: #666;
+            font-size: 1.1rem;
+        }
+        
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+        
+        .stat-card {
+            background: white;
+            border-radius: 10px;
+            padding: 20px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            text-align: center;
+            transition: transform 0.2s;
+        }
+        
+        .stat-card:hover {
+            transform: translateY(-2px);
+        }
+        
+        .stat-number {
+            font-size: 2.5rem;
+            font-weight: bold;
+            color: #3498db;
+            margin-bottom: 5px;
+        }
+        
+        .stat-label {
+            font-size: 0.9rem;
+            color: #666;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        
+        .charts-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+        
+        .chart-card {
+            background: white;
+            border-radius: 10px;
+            padding: 20px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        
+        .chart-title {
+            font-size: 1.2rem;
+            font-weight: 600;
+            color: #2c3e50;
+            margin-bottom: 15px;
+            text-align: center;
+        }
+        
+        .chart-container {
+            position: relative;
+            height: 300px;
+        }
+        
+        .insights-section {
+            background: white;
+            border-radius: 10px;
+            padding: 30px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
+        }
+        
+        .insights-title {
+            font-size: 1.5rem;
+            color: #2c3e50;
+            margin-bottom: 20px;
+            text-align: center;
+        }
+        
+        .insight-item {
+            background: #f8f9fa;
+            border-left: 4px solid #3498db;
+            padding: 15px;
+            margin-bottom: 15px;
+            border-radius: 0 5px 5px 0;
+        }
+        
+        @media (max-width: 768px) {
+            .charts-grid {
+                grid-template-columns: 1fr;
+            }
+            
+            .header h1 {
+                font-size: 2rem;
+            }
+        }
+    </style>
 </head>
 <body>
-<h1>Comprehensive Ticket Dashboard - 2025</h1>
+    <div class="container">
+        <div class="header">
+            <h1>Support Ticket Analysis Dashboard</h1>
+            <p>Comprehensive analysis of support ticket data and trends</p>
+        </div>
+        
+        <!-- KPI Cards Section -->
+        <div class="stats-grid">
+            <!-- Stats will be inserted here -->
+            
 
-<div class="kpi">
-  <div class="kpi-card">
-    <h2>1945</h2>
-    <p>Total Tickets in 2025</p>
-  </div>
-  <div class="kpi-card">
-    <h2>Support</h2>
-    <p>Most Common Request Type</p>
-  </div>
-  <div class="kpi-card">
-    <h2>Software</h2>
-    <p>Most Common Category</p>
-  </div>
-</div>
+    <div class="stat-card">
+        <div class="stat-number">200000</div>
+        <div class="stat-label">Total Tickets</div>
+    </div>
+    
+        </div>
+        
+        <!-- Charts Section -->
+        <div class="charts-grid">
+            <!-- Charts will be inserted here -->
+            
+    <div class="chart-card">
+        <h3 class="chart-title">Monthly Ticket Trends</h3>
+        <div class="chart-container">
+            <canvas id="lineChart"></canvas>
+        </div>
+    </div>
+    
+    <div class="chart-card">
+        <h3 class="chart-title">Ticket Type Distribution</h3>
+        <div class="chart-container">
+            <canvas id="pieChart"></canvas>
+        </div>
+    </div>
+    
+    <div class="chart-card">
+        <h3 class="chart-title">Ticket Category Distribution</h3>
+        <div class="chart-container">
+            <canvas id="barChart"></canvas>
+        </div>
+    </div>
+    
+        </div>
+        
+        <!-- Insights Section -->
+        <div class="insights-section">
+            <h2 class="insights-title">Key Insights</h2>
+            
+<h3>Key Insights</h3>
+<ul>
+  <li>Total tickets handled: 200,000 across multiple categories and request types.</li>
+  <li>Ticket volume shows variability month to month but generally consistent, with a drop-off in latest month data.</li>
+  <li>Ticket types are evenly distributed, Change requests slightly outnumber others.</li>
+  <li>Category distribution among tickets is also very balanced among the six main categories.</li>
+</ul>
 
-<div class="dashboard">
-  <div class="card">
-    <h3>Monthly Ticket Trend (Line + Bar Chart)</h3>
-    <canvas id="monthlyTrendChart"></canvas>
-  </div>
-  <div class="card">
-    <h3>Ticket Distribution by Request Type</h3>
-    <canvas id="requestTypeChart"></canvas>
-  </div>
-  <div class="card">
-    <h3>Ticket Counts by Category</h3>
-    <canvas id="categoryChart"></canvas>
-  </div>
-</div>
-
-<div class="insights">
-  <h3>Insights</h3>
-  <ul>
-    <li>Total tickets handled in 2025 amount to 1945.</li>
-    <li>The most frequent request type was <strong>Support</strong>, indicating a high volume of support related queries.</li>
-    <li>The category with the highest tickets was <strong>Software</strong>, showing focus area in this domain.</li>
-  </ul>
-</div>
-
-<script>
-const ctxMonthly = document.getElementById('monthlyTrendChart').getContext('2d');
-const monthlyTrendChart = new Chart(ctxMonthly, {
-    type: 'bar',
-    data: {
-        labels: ["2025-01", "2025-02", "2025-03", "2025-04", "2025-05", "2025-06", "2025-07", "2025-08", "2025-09", "2025-10", "2025-11", "2025-12"],
-        datasets: [
-            {
-                type: 'line',
-                label: 'Ticket Count (Line)',
-                data: [120, 135, 150, 175, 160, 145, 155, 165, 170, 180, 190, 200],
-                borderColor: 'rgba(54, 162, 235, 1)',
-                backgroundColor: 'rgba(54, 162, 235, 0.2)',
-                yAxisID: 'y',
-                tension: 0.3
-            },
-            {
-                type: 'bar',
-                label: 'Ticket Count (Bar)',
-                data: [120, 135, 150, 175, 160, 145, 155, 165, 170, 180, 190, 200],
-                backgroundColor: 'rgba(75, 192, 192, 0.7)',
-                yAxisID: 'y'
-            }
-        ]
-    },
-    options: {
-        scales: {
-            y: {
-                beginAtZero: true,
-                title: {
-                    display: true,
-                    text: 'Tickets'
+        </div>
+    </div>
+    
+    <script>
+        // Chart data and initialization
+        
+    // Initialize Monthly Ticket Trends Chart
+    const lineChartCtx = document.getElementById('lineChart').getContext('2d');
+    const lineChartChart = new Chart(lineChartCtx, {
+        type: 'line',
+        data: {
+            labels: ['2025-01', '2025-02', '2025-03', '2025-04', '2025-05', '2025-06', '2025-07', '2025-08', '2025-09'],
+            datasets: [{
+                label: 'Monthly Ticket Trends',
+                data: [25337, 23124, 25481, 24589, 25590, 24624, 25899, 25310, 46],
+                backgroundColor: [
+                    '#3498db', '#e74c3c', '#2ecc71', '#f39c12', 
+                    '#9b59b6', '#1abc9c', '#34495e', '#e67e22'
+                ],
+                borderColor: '#fff',
+                borderWidth: 2
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: {
+                    position: 'bottom'
                 }
             }
+        }
+    });
+    
+    // Initialize Ticket Type Distribution Chart
+    const pieChartCtx = document.getElementById('pieChart').getContext('2d');
+    const pieChartChart = new Chart(pieChartCtx, {
+        type: 'pie',
+        data: {
+            labels: ['Change', 'Incident', 'Request'],
+            datasets: [{
+                label: 'Ticket Type Distribution',
+                data: [66829, 66589, 66582],
+                backgroundColor: [
+                    '#3498db', '#e74c3c', '#2ecc71', '#f39c12', 
+                    '#9b59b6', '#1abc9c', '#34495e', '#e67e22'
+                ],
+                borderColor: '#fff',
+                borderWidth: 2
+            }]
         },
-        plugins: {
-            legend: { position: 'top' },
-            tooltip: { enabled: true }
-        }
-    }
-});
-
-const ctxRequest = document.getElementById('requestTypeChart').getContext('2d');
-const requestTypeChart = new Chart(ctxRequest, {
-    type: 'pie',
-    data: {
-        labels: ["Bug", "Feature Request", "Support", "Inquiry"],
-        datasets: [{
-            data: [300, 150, 350, 100],
-            backgroundColor: [
-                '#FF6384', '#36A2EB', '#FFCE56', '#8A2BE2'
-            ]
-        }]
-    },
-    options: {
-        plugins: {
-            legend: { position: 'right' },
-            tooltip: { enabled: true }
-        }
-    }
-});
-
-const ctxCategory = document.getElementById('categoryChart').getContext('2d');
-const categoryChart = new Chart(ctxCategory, {
-    type: 'bar',
-    data: {
-        labels: ["Software", "Hardware", "Network", "Other"],
-        datasets: [{
-            label: 'Ticket Counts',
-            data: [400, 200, 180, 120],
-            backgroundColor: 'rgba(255, 159, 64, 0.7)'
-        }]
-    },
-    options: {
-        scales: {
-            y: {
-                beginAtZero: true,
-                title: {
-                    display: true,
-                    text: 'Tickets'
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: {
+                    position: 'bottom'
                 }
             }
-        },
-        plugins: {
-            legend: { display: false },
-            tooltip: { enabled: true }
         }
-    }
-});
-</script>
-
+    });
+    
+    // Initialize Ticket Category Distribution Chart
+    const barChartCtx = document.getElementById('barChart').getContext('2d');
+    const barChartChart = new Chart(barChartCtx, {
+        type: 'bar',
+        data: {
+            labels: ['Access', 'Network & Security', 'Account Management', 'Software', 'Hardware', 'Communication'],
+            datasets: [{
+                label: 'Ticket Category Distribution',
+                data: [33689, 33529, 33420, 33342, 33089, 32931],
+                backgroundColor: [
+                    '#3498db', '#e74c3c', '#2ecc71', '#f39c12', 
+                    '#9b59b6', '#1abc9c', '#34495e', '#e67e22'
+                ],
+                borderColor: '#fff',
+                borderWidth: 2
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: {
+                    position: 'bottom'
+                }
+            }
+        }
+    });
+    
+    </script>
 </body>
 </html>
