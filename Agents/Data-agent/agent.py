@@ -119,10 +119,23 @@ if not os.path.exists(data_flag_file) or not os.path.exists(csv_path):
     with open(data_flag_file, 'w') as f:
         f.write("initialized")
 else:
-    # Reuse already processed data - load column types from CSV
+    # Reuse already processed data - load column types from CSV with proper inference
     if os.path.exists(csv_path):
-        df = pd.read_csv(csv_path, nrows=0)  # Read only headers for dtype inference
-        column_types = df.dtypes.to_dict()
+        # Read a small sample to get proper column types
+        df_sample = pd.read_csv(csv_path, nrows=1000)
+        # Apply the same type inference as the original processing
+        for col in df_sample.columns:
+            if any(word in col.lower() for word in ['date', 'time', 'created', 'updated', 'resolved']):
+                try:
+                    df_sample[col] = pd.to_datetime(df_sample[col])
+                except (ValueError, TypeError):
+                    pass
+            elif df_sample[col].dtype == 'object':
+                try:
+                    df_sample[col] = pd.to_numeric(df_sample[col])
+                except (ValueError, TypeError):
+                    pass
+        column_types = df_sample.dtypes.to_dict()
         console.print(f"[green]Reusing processed data: {csv_path}[/green]")
     else:
         # Fallback if CSV doesn't exist
@@ -144,17 +157,23 @@ data_analyst = Agent(
     tools=[duckdb_tools],
     instructions=[
         "You are a data analyst with access to a 'data' table containing ticket/support request data.",
-        "The data table has 4469 rows and columns including: Request ID, Category, Subcategory, SLA Name, Created Time, etc.",
+        "You have access to ONLY the 'data' table - do not query any other tables as they don't exist.",
+        "IMPORTANT: Always start by running 'DESCRIBE data' to understand the current schema before running analysis queries.",
+        "Use exact column names from the schema - column names may contain spaces and need to be quoted with double quotes.",
+        "For date operations, use STRFTIME('%Y-%m', \"Created Time\") for monthly grouping - do NOT use DATE_TRUNC.",
         "Always use SQL queries to analyze the actual data in the 'data' table.",
         "Provide detailed analysis with specific numbers and insights from the data.",
-        "When analyzing trends, use date functions on the 'Created Time' column.",
         "Focus on real patterns in the actual data, not hypothetical scenarios.",
         "",
         "For insight requests, provide a comprehensive text summary with key findings:",
-        "- Execute 3-5 relevant SQL queries to gather key metrics",
+        "- FIRST: Run DESCRIBE data to get current schema",
+        "- Execute 3-5 relevant SQL queries to gather key metrics from the 'data' table ONLY",
+        "- Use proper DuckDB syntax: STRFTIME for dates, proper column quoting",
         "- Summarize findings in clear, actionable insights",
         "- Include specific numbers and percentages",
         "- Stop after providing insights - do not create visualizations unless specifically requested",
+        "",
+        "CRITICAL: Only query the 'data' table. If a query fails, check the schema and use correct DuckDB syntax.",
     ],
 )
 
@@ -185,10 +204,20 @@ viz_specialist = Agent(
         "DASHBOARD CREATION TEMPLATE:",
         "```python",
         "from dashboard_templates import get_html_template, get_chart_js_template, get_stat_card_template",
-        "# Query multiple related datasets",
-        "# Create HTML with multiple Chart.js charts",
-        "# Include KPI cards and insights",
-        "# Save comprehensive dashboard to output/",
+        "# Query data first to get actual values",
+        "# Create HTML template - get_html_template() takes NO parameters",
+        "html_template = get_html_template()",
+        "# Create stat cards using template replacement",
+        "stat_card_template = get_stat_card_template()",
+        "stats_html = stat_card_template.replace('{{NUMBER}}', '1000').replace('{{LABEL}}', 'Total Tickets')",
+        "# Create chart JS using get_chart_js_template(chart_id, chart_type, data_labels, data_values, title)",
+        "chart_js = get_chart_js_template('chart1', 'pie', ['A', 'B'], [10, 20], 'My Chart')",
+        "# Create chart containers using get_chart_card_template()",
+        "chart_card_template = get_chart_card_template()",
+        "charts_html = chart_card_template.replace('{{CHART_TITLE}}', 'My Chart').replace('{{CHART_ID}}', 'chart1')",
+        "# Replace placeholders: {{STATS_CONTENT}}, {{CHARTS_CONTENT}}, {{INSIGHTS_CONTENT}}, {{JAVASCRIPT_CONTENT}}",
+        "final_html = html_template.replace('{{STATS_CONTENT}}', stats_html).replace('{{CHARTS_CONTENT}}', charts_html)",
+        "# Save to output/ folder - avoid filename conflicts with template",
         "```",
 
         "SINGLE CHART EXAMPLE:",
@@ -196,12 +225,22 @@ viz_specialist = Agent(
         "2. Python: matplotlib visualization, save PNG to output/",
 
         "CRITICAL REQUIREMENTS:",
-        "- ALWAYS query actual data first with DuckDB",
+        "- ALWAYS query actual data first with DuckDB from the 'data' table only",
         "- MUST execute Python code to create and save files",
         "- Dashboard mode: Create 3-4 related visualizations in one HTML file",
         "- Single mode: Create focused analysis with one PNG chart",
         "- Include data-driven insights and specific numbers in all outputs",
         "- Never respond without creating the requested file(s)",
+        "",
+        "IMPORTANT FUNCTION SIGNATURES:",
+        "- get_html_template() - takes NO parameters, returns template string",
+        "- get_chart_js_template(chart_id, chart_type, data_labels, data_values, title) - requires all 5 parameters",
+        "- get_stat_card_template() - takes NO parameters, returns template string",
+        "- get_chart_card_template() - takes NO parameters, returns chart container template",
+        "- Use template.replace('{{PLACEHOLDER}}', 'value') to fill templates",
+        "",
+        "CRITICAL: Always use specific filenames like 'ticket_dashboard.html' or 'category_analysis.html'",
+        "NEVER use generic names like 'comprehensive_dashboard.html' that might conflict with templates",
     ],
 )
 
@@ -212,8 +251,8 @@ analysis_team = Team(
     members=[data_analyst, viz_specialist],
     tools=[reasoning_tools],
     instructions=[
-        f"You have access to a 'data' table with {len(column_types)} columns and 4469 rows of ticket/support data.",
-        f"Column types: {column_types}",
+        "You have access to a 'data' table containing ticket/support request data.",
+        "IMPORTANT: Agents should run 'DESCRIBE data' first to get current schema and row count before analysis.",
 
         "REQUEST TYPE DETECTION:",
         "INSIGHTS/ANALYSIS REQUESTS: 'insights', 'analysis', 'what can you tell me', 'patterns', 'trends', 'summary' → Data Analyst provides text-based insights",
