@@ -28,3 +28,5 @@ logs/
 output.txt
 .claude
 node_modules/
+
+*.jpg

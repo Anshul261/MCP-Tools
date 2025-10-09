@@ -29,6 +29,15 @@ def get_model():
         azure_deployment=os.getenv("AZURE_OPENAI_DEPLOYMENT_NAME"),
     )
 
+def get_model_gpt5():
+    return AzureOpenAI(
+        id=os.getenv("AZURE_OPENAI_DEPLOYMENT_NAME_5"),
+        api_key=os.getenv("AZURE_OPENAI_API_KEY_5"),
+        api_version='2025-03-01-preview',
+        azure_endpoint=os.getenv("AZURE_OPENAI_ENDPOINT_5"),
+        azure_deployment=os.getenv("AZURE_OPENAI_DEPLOYMENT_NAME"),
+    )
+
 # Combined Intelligence Analyst
 intelligence_analyst = Agent(
     model=get_model(),
