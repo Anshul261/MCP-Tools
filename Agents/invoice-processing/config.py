@@ -1,7 +1,9 @@
 """
 Configuration settings for invoice processing system
 """
+
 import os
+
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -36,7 +38,9 @@ class Config:
         ]
         missing = [key for key in required if not getattr(cls, key)]
         if missing:
-            raise ValueError(f"Missing required environment variables: {', '.join(missing)}")
+            raise ValueError(
+                f"Missing required environment variables: {', '.join(missing)}"
+            )
 
     @classmethod
     def display(cls):

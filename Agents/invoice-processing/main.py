@@ -5,18 +5,16 @@ Workflow: Image → Extract → Analyze → Validate → [Review] → Persist to
 """
 
 import json
-from pathlib import Path
 from datetime import datetime
+from pathlib import Path
 from typing import Optional
 
 from agno.agent import Agent
-from agno.models.azure import AzureOpenAI
 from agno.media import Image
+from agno.models.azure import AzureOpenAI
 from agno.tools.duckdb import DuckDbTools
-
 from config import Config
 from models import InvoiceData, InvoiceLineItem
-
 
 # ============================================================================
 # Database Setup
@@ -272,55 +270,62 @@ def human_review(
 def save_to_database(invoice_data: InvoiceData, db_tools: DuckDbTools) -> int:
     """Save approved invoice to DuckDB and return invoice ID"""
 
-    # Insert invoice record
-    invoice_insert = f"""
+    # Insert invoice record using parameterized query
+    invoice_insert = """
     INSERT INTO invoices (
         invoice_no, date_of_issue, seller_name, seller_address, seller_tax_id,
         seller_iban, client_name, client_address, client_tax_id,
         vat_percent, net_worth_total, vat_total, gross_worth_total, confidence_score
-    ) VALUES (
-        '{invoice_data.invoice_no}',
-        '{invoice_data.date_of_issue}',
-        '{invoice_data.seller_name.replace("'", "''")}',
-        '{invoice_data.seller_address.replace("'", "''")}',
-        '{invoice_data.seller_tax_id}',
-        '{invoice_data.seller_iban}',
-        '{invoice_data.client_name.replace("'", "''")}',
-        '{invoice_data.client_address.replace("'", "''")}',
-        '{invoice_data.client_tax_id}',
-        {float(invoice_data.vat_percent)},
-        {float(invoice_data.net_worth_total)},
-        {float(invoice_data.vat_total)},
-        {float(invoice_data.gross_worth_total)},
-        {invoice_data.confidence_score}
-    );
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
     """
 
-    db_tools.connection.execute(invoice_insert)
+    db_tools.connection.execute(
+        invoice_insert,
+        [
+            invoice_data.invoice_no,
+            invoice_data.date_of_issue,
+            invoice_data.seller_name,
+            invoice_data.seller_address,
+            invoice_data.seller_tax_id,
+            invoice_data.seller_iban,
+            invoice_data.client_name,
+            invoice_data.client_address,
+            invoice_data.client_tax_id,
+            float(invoice_data.vat_percent),
+            float(invoice_data.net_worth_total),
+            float(invoice_data.vat_total),
+            float(invoice_data.gross_worth_total),
+            invoice_data.confidence_score,
+        ],
+    )
 
     # Get the inserted invoice ID
     result = db_tools.connection.execute("SELECT MAX(id) FROM invoices;").fetchone()
     invoice_id = result[0]
 
-    # Insert line items
+    # Insert line items using parameterized query
+    line_item_insert = """
+    INSERT INTO line_items (
+        invoice_id, item_no, description, qty, unit_measure,
+        net_price, net_worth, vat_percent, gross_worth
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?);
+    """
+
     for item in invoice_data.line_items:
-        line_item_insert = f"""
-        INSERT INTO line_items (
-            invoice_id, item_no, description, qty, unit_measure,
-            net_price, net_worth, vat_percent, gross_worth
-        ) VALUES (
-            {invoice_id},
-            {item.item_no},
-            '{item.description.replace("'", "''")}',
-            {float(item.qty)},
-            '{item.unit_measure}',
-            {float(item.net_price)},
-            {float(item.net_worth)},
-            {float(item.vat_percent)},
-            {float(item.gross_worth)}
-        );
-        """
-        db_tools.connection.execute(line_item_insert)
+        db_tools.connection.execute(
+            line_item_insert,
+            [
+                invoice_id,
+                item.item_no,
+                item.description,
+                float(item.qty),
+                item.unit_measure,
+                float(item.net_price),
+                float(item.net_worth),
+                float(item.vat_percent),
+                float(item.gross_worth),
+            ],
+        )
 
     print(f"\n[+] Invoice saved to database with ID: {invoice_id}")
     return invoice_id
