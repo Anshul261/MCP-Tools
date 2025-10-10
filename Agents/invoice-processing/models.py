@@ -2,13 +2,16 @@
 Pydantic models for invoice data structure
 Optimized for batch1 invoice format (Invoice 51109338)
 """
-from pydantic import BaseModel, Field
-from typing import List, Optional
+
 from decimal import Decimal
+from typing import List, Optional
+
+from pydantic import BaseModel, Field
 
 
 class InvoiceLineItem(BaseModel):
     """Individual line item in an invoice"""
+
     item_no: int = Field(..., description="Line item number")
     description: str = Field(..., description="Item description")
     qty: Decimal = Field(..., description="Quantity of items")
@@ -21,6 +24,7 @@ class InvoiceLineItem(BaseModel):
 
 class InvoiceData(BaseModel):
     """Structured invoice data model for batch1 format"""
+
     # Invoice identifiers
     invoice_no: str = Field(..., description="Invoice number")
     date_of_issue: str = Field(..., description="Date of issue")
@@ -37,7 +41,9 @@ class InvoiceData(BaseModel):
     client_tax_id: str = Field(..., description="Client tax ID")
 
     # Line items
-    line_items: List[InvoiceLineItem] = Field(..., description="List of invoice line items")
+    line_items: List[InvoiceLineItem] = Field(
+        ..., description="List of invoice line items"
+    )
 
     # Summary totals
     vat_percent: Decimal = Field(..., description="VAT percentage applied")
@@ -46,7 +52,9 @@ class InvoiceData(BaseModel):
     gross_worth_total: Decimal = Field(..., description="Total gross worth (with VAT)")
 
     # Metadata
-    confidence_score: float = Field(default=0.0, description="Extraction confidence score (0-1)")
+    confidence_score: float = Field(
+        default=0.0, description="Extraction confidence score (0-1)"
+    )
 
     class Config:
         json_schema_extra = {
@@ -69,20 +77,21 @@ class InvoiceData(BaseModel):
                         "net_price": "209.00",
                         "net_worth": "627.00",
                         "vat_percent": "10",
-                        "gross_worth": "689.70"
+                        "gross_worth": "689.70",
                     }
                 ],
                 "vat_percent": "10",
                 "net_worth_total": "5640.17",
                 "vat_total": "564.02",
                 "gross_worth_total": "6204.19",
-                "confidence_score": 0.95
+                "confidence_score": 0.95,
             }
         }
 
 
 class ReviewRequest(BaseModel):
     """Model for human review request"""
+
     invoice_data: InvoiceData
     extracted_text: str
     image_path: str
@@ -92,6 +101,7 @@ class ReviewRequest(BaseModel):
 
 class ReviewResponse(BaseModel):
     """Model for human review response"""
+
     approved: bool
     modified_data: Optional[InvoiceData] = None
     feedback: Optional[str] = None
