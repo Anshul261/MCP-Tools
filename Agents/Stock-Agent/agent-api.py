@@ -11,7 +11,7 @@ from dotenv import load_dotenv
 from agno.team import Team
 from agno.tools.reasoning import ReasoningTools
 from agno.os import AgentOS
-from agno.models.ollama import Ollama
+# from agno.models.ollama import Ollama
 
 load_dotenv()
 console = Console()
@@ -21,6 +21,7 @@ from agno.db.sqlite import SqliteDb
 
 db = SqliteDb(db_file="tmp/data.db")
 
+
 def get_model():
     return AzureOpenAI(
         id=os.getenv("AZURE_OPENAI_DEPLOYMENT_NAME"),
@@ -29,6 +30,7 @@ def get_model():
         azure_endpoint=os.getenv("AZURE_OPENAI_ENDPOINT"),
         azure_deployment=os.getenv("AZURE_OPENAI_DEPLOYMENT_NAME"),
     )
+
 
 def get_model_gpt5():
     return AzureOpenAI(
@@ -40,8 +42,8 @@ def get_model_gpt5():
     )
 
 
-def get_model_ollama():
-    return Ollama(id="gpt-oss:20b")
+# def get_model_ollama():
+#     return Ollama(id="gpt-oss:20b")
 
 
 # Combined Intelligence Analyst
