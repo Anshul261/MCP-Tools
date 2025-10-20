@@ -1,11 +1,3 @@
-"""
-Document Generation Team Agent
-A multi-agent system that sequentially generates comprehensive documents and reports
-based on documents stored in a knowledge base.
-
-Uses custom @tool() decorated functions for file generation since agno.tools.file_generation doesn't exist yet.
-"""
-
 import os
 from pathlib import Path
 from typing import List, Optional
@@ -453,7 +445,20 @@ def interactive_session():
             print(f"Document Generation Team Working (Schema: {current_schema})...")
             print("=" * 70 + "\n")
 
-            current_team.print_response(user_input, stream=True)
+            # Get the response
+            response = current_team.run(user_input)
+
+            # Print the response
+            if response and response.content:
+                print(response.content)
+
+                # Save to file
+                from datetime import datetime
+
+                timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+                output_file = OUTPUT_DIR / f"response_{current_schema}_{timestamp}.txt"
+                output_file.write_text(str(response.content))
+                print(f"\n\nFull response saved to: {output_file}")
 
             print("\n" + "=" * 70)
 

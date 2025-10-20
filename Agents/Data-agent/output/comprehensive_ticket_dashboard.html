@@ -159,23 +159,23 @@
             <!-- Charts will be inserted here -->
             
     <div class="chart-card">
-        <h3 class="chart-title">Monthly Ticket Trends</h3>
+        <h3 class="chart-title">Ticket Trends Over Time (Monthly)</h3>
         <div class="chart-container">
-            <canvas id="chart1"></canvas>
+            <canvas id="lineChart"></canvas>
         </div>
     </div>
     
     <div class="chart-card">
-        <h3 class="chart-title">Ticket Type Distribution</h3>
+        <h3 class="chart-title">Ticket Request Types Distribution</h3>
         <div class="chart-container">
-            <canvas id="chart2"></canvas>
+            <canvas id="pieChart"></canvas>
         </div>
     </div>
     
     <div class="chart-card">
         <h3 class="chart-title">Ticket Category Splits</h3>
         <div class="chart-container">
-            <canvas id="chart3"></canvas>
+            <canvas id="barChart"></canvas>
         </div>
     </div>
     
@@ -185,28 +185,29 @@
         <div class="insights-section">
             <h2 class="insights-title">Key Insights</h2>
             
-<ul>
-<li>Total tickets: 200000</li>
-<li>Monthly ticket volume shows some fluctuations with peaks around May and July 2025.</li>
-<li>Top ticket types are Software, Account, and Hardware.</li>
-<li>Ticket categories are dominated by Software, followed by Account, Hardware, and others.</li>
-</ul>
-
+    <div class="insight-item">
+        <strong>Total Tickets Processed:</strong> A total of 200000 tickets were processed across various categories and types.
+    </div>
+    
+    <div class="insight-item">
+        <strong>Most Requests By Type:</strong> The most frequent request type is Change with 66829 tickets.
+    </div>
+    
         </div>
     </div>
     
     <script>
         // Chart data and initialization
         
-    // Initialize Monthly Ticket Trends Chart
-    const chart1Ctx = document.getElementById('chart1').getContext('2d');
-    const chart1Chart = new Chart(chart1Ctx, {
+    // Initialize Ticket Trends Over Time Chart
+    const lineChartCtx = document.getElementById('lineChart').getContext('2d');
+    const lineChartChart = new Chart(lineChartCtx, {
         type: 'line',
         data: {
-            labels: ['2025-01', '2025-02', '2025-03', '2025-04', '2025-05', '2025-06', '2025-07', '2025-08'],
+            labels: ['2025-01', '2025-02', '2025-03', '2025-04', '2025-05', '2025-06', '2025-07', '2025-08', '2025-09'],
             datasets: [{
-                label: 'Monthly Ticket Trends',
-                data: [25373, 23133, 25472, 24582, 25597, 24612, 25903, 25328],
+                label: 'Ticket Trends Over Time',
+                data: [24106, 23124, 25530, 24540, 25545, 24662, 25892, 25281, 1320],
                 backgroundColor: [
                     '#3498db', '#e74c3c', '#2ecc71', '#f39c12', 
                     '#9b59b6', '#1abc9c', '#34495e', '#e67e22'
@@ -226,15 +227,15 @@
         }
     });
     
-    // Initialize Ticket Type Distribution Chart
-    const chart2Ctx = document.getElementById('chart2').getContext('2d');
-    const chart2Chart = new Chart(chart2Ctx, {
+    // Initialize Ticket Request Types Distribution Chart
+    const pieChartCtx = document.getElementById('pieChart').getContext('2d');
+    const pieChartChart = new Chart(pieChartCtx, {
         type: 'pie',
         data: {
-            labels: ['Software', 'Account', 'Hardware'],
+            labels: ['Incident', 'Change', 'Request'],
             datasets: [{
-                label: 'Ticket Type Distribution',
-                data: [39986, 20109, 20064],
+                label: 'Ticket Request Types Distribution',
+                data: [66589, 66829, 66582],
                 backgroundColor: [
                     '#3498db', '#e74c3c', '#2ecc71', '#f39c12', 
                     '#9b59b6', '#1abc9c', '#34495e', '#e67e22'
@@ -255,14 +256,14 @@
     });
     
     // Initialize Ticket Category Splits Chart
-    const chart3Ctx = document.getElementById('chart3').getContext('2d');
-    const chart3Chart = new Chart(chart3Ctx, {
+    const barChartCtx = document.getElementById('barChart').getContext('2d');
+    const barChartChart = new Chart(barChartCtx, {
         type: 'bar',
         data: {
-            labels: ['Software', 'Account', 'Hardware', 'Other'],
+            labels: ['Account Management', 'Hardware', 'Network & Security', 'Access', 'Communication', 'Software'],
             datasets: [{
                 label: 'Ticket Category Splits',
-                data: [39986, 20109, 20064, 118741],
+                data: [33420, 33089, 33529, 33689, 32931, 33342],
                 backgroundColor: [
                     '#3498db', '#e74c3c', '#2ecc71', '#f39c12', 
                     '#9b59b6', '#1abc9c', '#34495e', '#e67e22'
