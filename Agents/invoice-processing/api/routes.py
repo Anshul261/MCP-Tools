@@ -186,14 +186,14 @@ async def get_workflow_state(session_id: str):
 @router.get("/invoices", response_model=InvoiceQueryResponse)
 async def query_invoices(limit: int = Query(10, ge=1, le=100), offset: int = Query(0, ge=0)):
     """
-    Query saved invoices from DuckDB.
+    Query saved invoices from DuckDB with line items.
 
     Args:
         limit: Number of results (1-100)
         offset: Offset for pagination
 
     Returns:
-        InvoiceQueryResponse with invoice data
+        InvoiceQueryResponse with invoice data including line items
 
     Raises:
         HTTPException: 500 if database query fails
@@ -206,19 +206,101 @@ async def query_invoices(limit: int = Query(10, ge=1, le=100), offset: int = Que
         raise HTTPException(status_code=503, detail="Database not initialized")
 
     try:
-        # Query invoices
+        # Query invoices without joining line items first (simpler query)
         result = db_tools.connection.execute(
-            "SELECT * FROM invoices LIMIT ? OFFSET ?", [limit, offset]
+            """
+            SELECT
+                i.id,
+                i.invoice_no,
+                i.date_of_issue,
+                i.seller_name,
+                i.seller_address,
+                i.seller_tax_id,
+                i.seller_iban,
+                i.client_name,
+                i.client_address,
+                i.client_tax_id,
+                i.vat_percent,
+                i.net_worth_total,
+                i.vat_total,
+                i.gross_worth_total,
+                i.confidence_score,
+                i.created_at
+            FROM invoices i
+            LIMIT ? OFFSET ?
+            """,
+            [limit, offset],
         ).fetchall()
 
-        # Get column names for better response
+        # Get column names
         description = db_tools.connection.execute(
-            "PRAGMA table_info(invoices)"
-        ).fetchall()
-        columns = [col[1] for col in description]
+            """
+            SELECT
+                i.id,
+                i.invoice_no,
+                i.date_of_issue,
+                i.seller_name,
+                i.seller_address,
+                i.seller_tax_id,
+                i.seller_iban,
+                i.client_name,
+                i.client_address,
+                i.client_tax_id,
+                i.vat_percent,
+                i.net_worth_total,
+                i.vat_total,
+                i.gross_worth_total,
+                i.confidence_score,
+                i.created_at
+            FROM invoices i
+            LIMIT 1
+            """
+        ).description
+
+        columns = [desc[0] for desc in description] if description else []
 
         # Convert rows to dictionaries
-        invoices = [dict(zip(columns, row)) for row in result]
+        invoices = []
+        for row in result:
+            inv_dict = dict(zip(columns, row)) if columns else {}
+
+            # Get line items for this invoice
+            if inv_dict.get("id"):
+                line_items = db_tools.connection.execute(
+                    """
+                    SELECT
+                        item_no,
+                        description,
+                        qty,
+                        unit_measure,
+                        net_price,
+                        net_worth,
+                        vat_percent,
+                        gross_worth
+                    FROM line_items
+                    WHERE invoice_id = ?
+                    ORDER BY item_no
+                    """,
+                    [inv_dict["id"]],
+                ).fetchall()
+
+                # Convert line items to list of dicts
+                line_items_list = []
+                for item in line_items:
+                    line_items_list.append({
+                        "item_no": item[0],
+                        "description": item[1],
+                        "qty": item[2],
+                        "unit_measure": item[3],
+                        "net_price": item[4],
+                        "net_worth": item[5],
+                        "vat_percent": item[6],
+                        "gross_worth": item[7],
+                    })
+
+                inv_dict["line_items"] = line_items_list
+
+            invoices.append(inv_dict)
 
         # Get total count
         total_result = db_tools.connection.execute(

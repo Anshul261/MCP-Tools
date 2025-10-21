@@ -459,9 +459,10 @@ elif page == "📈 View Results":
     if result and result["invoices"]:
         st.write(f"Showing {len(result['invoices'])} of {result['total']} invoices")
 
-        # Display all columns from database
-        table_data = []
-        for inv in result["invoices"]:
+        # Create consolidated table with all invoices and line items
+        all_rows = []
+
+        for idx, inv in enumerate(result["invoices"]):
             try:
                 # Convert numeric strings to floats/decimals
                 net_total = float(inv.get("net_worth_total", 0)) if inv.get("net_worth_total") else 0
@@ -470,33 +471,66 @@ elif page == "📈 View Results":
                 confidence = float(inv.get("confidence_score", 0)) if inv.get("confidence_score") else 0
                 vat_pct = float(inv.get("vat_percent", 0)) if inv.get("vat_percent") else 0
 
-                table_data.append({
-                    "ID": inv.get("id"),
-                    "Invoice #": inv.get("invoice_no", "N/A"),
-                    "Date": str(inv.get("date_of_issue", "N/A")),
-                    "Seller": str(inv.get("seller_name", "N/A"))[:25],
-                    "Seller Address": str(inv.get("seller_address", "N/A"))[:20],
-                    "Seller Tax ID": str(inv.get("seller_tax_id", "N/A")),
-                    "Seller IBAN": str(inv.get("seller_iban", "N/A"))[:15],
-                    "Client": str(inv.get("client_name", "N/A"))[:25],
-                    "Client Address": str(inv.get("client_address", "N/A"))[:20],
-                    "Client Tax ID": str(inv.get("client_tax_id", "N/A")),
-                    "VAT %": f"{vat_pct:.2f}",
-                    "Net Total": f"${net_total:.2f}",
-                    "VAT Amount": f"${vat_amt:.2f}",
-                    "Gross Total": f"${gross_total:.2f}",
-                    "Confidence": f"{confidence:.1%}",
-                    "Created": str(inv.get("created_at", "N/A"))[:19],
-                })
+                line_items = inv.get("line_items", [])
+
+                # If no line items, add invoice summary row
+                if not line_items:
+                    all_rows.append({
+                        "Invoice #": inv.get("invoice_no", "N/A"),
+                        "Seller": inv.get("seller_name", "N/A")[:25],
+                        "Client": inv.get("client_name", "N/A")[:25],
+                        "Item #": "-",
+                        "Item Description": "-",
+                        "Qty": "-",
+                        "Unit": "-",
+                        "Net Price": "-",
+                        "Net Worth": "-",
+                        "Item VAT %": "-",
+                        "Item Gross": "-",
+                        "Invoice Total": f"${gross_total:.2f}",
+                        "VAT %": f"{vat_pct:.1f}%",
+                        "Confidence": f"{confidence:.1%}",
+                        "Date": str(inv.get("date_of_issue", "N/A")),
+                    })
+                else:
+                    # Add row for each line item
+                    for item in line_items:
+                        try:
+                            qty = float(item.get("qty", 0)) if item.get("qty") else 0
+                            net_price = float(item.get("net_price", 0)) if item.get("net_price") else 0
+                            net_worth = float(item.get("net_worth", 0)) if item.get("net_worth") else 0
+                            gross_worth = float(item.get("gross_worth", 0)) if item.get("gross_worth") else 0
+                            item_vat = float(item.get("vat_percent", 0)) if item.get("vat_percent") else 0
+
+                            all_rows.append({
+                                "Invoice #": inv.get("invoice_no", "N/A"),
+                                "Seller": inv.get("seller_name", "N/A")[:25],
+                                "Client": inv.get("client_name", "N/A")[:25],
+                                "Item #": item.get("item_no"),
+                                "Item Description": item.get("description", "N/A")[:30],
+                                "Qty": f"{qty:.2f}",
+                                "Unit": item.get("unit_measure", ""),
+                                "Net Price": f"${net_price:.2f}",
+                                "Net Worth": f"${net_worth:.2f}",
+                                "Item VAT %": f"{item_vat:.1f}%",
+                                "Item Gross": f"${gross_worth:.2f}",
+                                "Invoice Total": f"${gross_total:.2f}",
+                                "VAT %": f"{vat_pct:.1f}%",
+                                "Confidence": f"{confidence:.1%}",
+                                "Date": str(inv.get("date_of_issue", "N/A")),
+                            })
+                        except (ValueError, TypeError):
+                            continue
+
             except (ValueError, TypeError) as e:
-                # Skip rows with conversion errors
-                st.warning(f"Error processing row: {str(e)}")
+                st.warning(f"Error processing invoice: {str(e)}")
                 continue
 
-        if table_data:
-            st.dataframe(table_data, use_container_width=True, height=400)
+        # Display consolidated table
+        if all_rows:
+            st.dataframe(all_rows, use_container_width=True, height=600)
         else:
-            st.warning("No valid invoices to display")
+            st.warning("No valid data to display")
 
         # Pagination
         st.markdown("---")
