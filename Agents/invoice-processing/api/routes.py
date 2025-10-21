@@ -270,8 +270,10 @@ async def submit_review_response(session_id: str, request: ReviewRequest):
     """
     Submit human review response (approval/rejection).
 
-    This is for Phase 3 HITL integration.
-    Currently stores the approval but doesn't resume workflow.
+    This endpoint:
+    1. Receives approval/rejection from Streamlit UI
+    2. Resumes the paused workflow
+    3. Completes Step 5 (persistence)
 
     Args:
         session_id: Session identifier
@@ -289,7 +291,10 @@ async def submit_review_response(session_id: str, request: ReviewRequest):
     if not session:
         raise HTTPException(status_code=404, detail="Session not found")
 
-    # Store approval response
+    if not session.get("is_paused"):
+        raise HTTPException(status_code=400, detail="Workflow is not paused")
+
+    # Update approval status
     session_manager.update_session(
         session_id,
         {
@@ -297,8 +302,12 @@ async def submit_review_response(session_id: str, request: ReviewRequest):
             "review_notes": request.notes,
             "reviewer_id": request.reviewer_id,
             "is_paused": False,
+            "state": "processing",  # Resume processing
         },
     )
+
+    # Resume workflow completion (Step 5: Persist)
+    asyncio.create_task(resume_workflow_background(session_id, request.approved))
 
     message = (
         "Invoice approved" if request.approved else "Invoice rejected"
@@ -339,15 +348,79 @@ async def get_statistics():
 # ============================================================================
 
 
+async def resume_workflow_background(session_id: str, approved: bool):
+    """
+    Resume workflow after human review.
+
+    This function:
+    1. Gets the paused session
+    2. Completes Step 5 (persistence)
+    3. Updates session with final state
+
+    Args:
+        session_id: Session identifier
+        approved: Whether invoice was approved
+    """
+
+    try:
+        session = session_manager.get_session(session_id)
+        if not session:
+            print(f"[!] Session {session_id} not found for resume")
+            return
+
+        await initialize_services()
+
+        # ========== STEP 5: PERSIST (after approval) ==========
+        session_manager.update_session(
+            session_id,
+            {
+                "current_step": 5,
+                "current_step_name": "Persist",
+            },
+        )
+
+        if approved:
+            # Save invoice to database
+            from models import InvoiceData
+
+            invoice_data = InvoiceData(**session.get("invoice_data", {}))
+            invoice_id = save_invoice_to_database(invoice_data, db_tools)
+
+            session_manager.complete_session(session_id, invoice_id)
+            print(f"[+] Workflow {session_id} resumed and completed: saved invoice {invoice_id}")
+        else:
+            # Rejected - don't save
+            session_manager.update_session(
+                session_id,
+                {
+                    "state": "rejected",
+                    "current_step": 4,
+                    "current_step_name": "Review - Rejected",
+                },
+            )
+            print(f"[!] Workflow {session_id} resumed but rejected")
+
+    except Exception as e:
+        print(f"[!] Error resuming workflow {session_id}: {str(e)}")
+        session_manager.fail_session(session_id, str(e))
+
+
+def save_invoice_to_database(invoice_data, db_tools):
+    """Save invoice to database (imported from main.py)"""
+    from main import save_to_database
+    return save_to_database(invoice_data, db_tools)
+
+
 async def run_workflow_background(session_id: str, image_path: str):
     """
     Run invoice processing workflow in background.
 
     This function:
     1. Creates session state
-    2. Calls process_invoice_workflow (wrapper around main.process_invoice)
+    2. Calls process_invoice_workflow with skip_human_review=True
     3. Updates session as it progresses
-    4. Handles errors gracefully
+    4. Pauses at Step 4 if human review needed (for Streamlit)
+    5. Handles errors gracefully
 
     Args:
         session_id: Session identifier
@@ -365,11 +438,30 @@ async def run_workflow_background(session_id: str, image_path: str):
         state = WorkflowSessionState(session_id, image_path)
 
         # Run workflow in thread pool (blocking operation)
+        # Pass skip_human_review=True so it pauses for API instead of CLI
         result_state = await asyncio.to_thread(
-            process_invoice_workflow, state, db_tools
+            process_invoice_workflow, state, db_tools, skip_human_review=True
         )
 
-        # Update session with results
+        # Check if workflow is paused (waiting for human review)
+        if result_state.approval_status is None:
+            # Workflow paused at Step 4 - waiting for API review
+            session_manager.update_session(
+                session_id,
+                {
+                    "state": "awaiting_human_input",
+                    "is_paused": True,
+                    "current_step": result_state.current_step,
+                    "current_step_name": result_state.current_step_name,
+                    "confidence_score": result_state.confidence_score,
+                    "invoice_data": result_state.invoice_dict,
+                    "paused_reason": f"Confidence {result_state.confidence_score:.1%} below threshold (90%)",
+                },
+            )
+            print(f"[!] Workflow {session_id} paused at Step 4 - waiting for human review")
+            return  # Don't continue, wait for API review response
+
+        # Workflow completed
         if result_state.invoice_id:
             session_manager.complete_session(session_id, result_state.invoice_id)
             print(f"[+] Workflow {session_id} completed successfully")

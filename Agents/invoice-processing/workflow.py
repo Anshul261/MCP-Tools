@@ -64,46 +64,159 @@ class WorkflowSessionState:
 
 
 def process_invoice_workflow(
-    session_state: WorkflowSessionState, db_tools: SqliteDb
+    session_state: WorkflowSessionState,
+    db_tools: SqliteDb,
+    skip_human_review: bool = False  # Skip CLI review, use API instead
 ) -> WorkflowSessionState:
     """
-    Main workflow wrapper.
+    Main workflow wrapper with API-aware human review.
 
     This is a thin wrapper that:
     1. Calls existing process_invoice() from main.py
-    2. Tracks state in session_state for API consumption
-    3. Returns the updated session state
+    2. Handles human review via API (not CLI)
+    3. Tracks state in session_state for API consumption
+    4. Returns the updated session state
 
     The existing pipeline logic remains completely untouched.
-    We just wrap it to track progress and enable pause/resume.
+    We just wrap it to track progress and enable API-based pause/resume.
 
     Args:
         session_state: Workflow state tracker
         db_tools: DuckDB tools instance
+        skip_human_review: If True, skip CLI review and pause for API
 
     Returns:
         Updated session_state with results
     """
 
     # Import here to avoid circular imports
-    from main import process_invoice
+    from main import (
+        initialize_database,
+        create_extraction_agent,
+        create_analysis_agent,
+        create_validation_agent,
+        save_to_database,
+    )
+    from agno.media import Image
+    import json
 
-    # Call the existing process_invoice function
-    # It handles: extraction, analysis, validation, human review, persistence
-    # It returns: invoice_id if successful, None if rejected or failed
-    invoice_id = process_invoice(session_state.image_path, db_tools)
+    try:
+        # ============ STEP 1: EXTRACT ============
+        session_state.current_step = 1
+        session_state.current_step_name = "Extract"
 
-    # Update session state based on result
-    session_state.current_step = 5
-    session_state.current_step_name = "Completed"
+        extraction_agent = create_extraction_agent()
+        extraction_result = extraction_agent.run(
+            "Extract all text from this invoice image with perfect accuracy.",
+            images=[Image(filepath=session_state.image_path)],
+        )
+        session_state.extracted_text = extraction_result.content
+        print(f"[+] Step 1 Complete: Extracted {len(session_state.extracted_text)} characters")
 
-    if invoice_id:
-        session_state.approval_status = True
-        session_state.invoice_id = invoice_id
-    else:
-        session_state.approval_status = False
+        # ============ STEP 2: ANALYZE ============
+        session_state.current_step = 2
+        session_state.current_step_name = "Analyze"
 
-    return session_state
+        analysis_agent = create_analysis_agent()
+        analysis_result = analysis_agent.run(
+            f"Parse this invoice text into the exact JSON structure specified:\n\n{session_state.extracted_text}"
+        )
+
+        try:
+            response_text = analysis_result.content.strip()
+            if response_text.startswith("```"):
+                response_text = response_text.split("```")[1]
+                if response_text.startswith("json"):
+                    response_text = response_text[4:]
+            session_state.invoice_dict = json.loads(response_text.strip())
+            print(f"[+] Step 2 Complete: Found {len(session_state.invoice_dict.get('line_items', []))} line items")
+        except json.JSONDecodeError as e:
+            print(f"[!] Error parsing JSON: {e}")
+            session_state.invoice_dict = {}
+            raise
+
+        # ============ STEP 3: VALIDATE ============
+        session_state.current_step = 3
+        session_state.current_step_name = "Validate"
+
+        validation_agent = create_validation_agent()
+        validation_result = validation_agent.run(
+            f"Validate this invoice data:\n\n{json.dumps(session_state.invoice_dict, indent=2)}"
+        )
+
+        try:
+            validation_response = validation_result.content.strip()
+            if validation_response.startswith("```"):
+                validation_response = validation_response.split("```")[1]
+                if validation_response.startswith("json"):
+                    validation_response = validation_response[4:]
+
+            session_state.validation_result = json.loads(validation_response.strip())
+            session_state.confidence_score = session_state.validation_result.get("confidence_score", 0.5)
+            session_state.invoice_dict["confidence_score"] = session_state.confidence_score
+            print(f"[+] Step 3 Complete: Confidence {session_state.confidence_score:.2%}")
+        except json.JSONDecodeError:
+            print("[!] Could not parse validation response")
+            session_state.confidence_score = 0.5
+            session_state.invoice_dict["confidence_score"] = 0.5
+
+        # ============ STEP 4: REVIEW (API-AWARE) ============
+        session_state.current_step = 4
+        session_state.current_step_name = "Review"
+
+        from config import Config
+        from models import InvoiceData
+
+        # Check if we need human review
+        needs_review = (
+            session_state.confidence_score < Config.AUTO_APPROVE_CONFIDENCE
+            and Config.HUMAN_REVIEW_ENABLED
+        )
+
+        if needs_review and skip_human_review:
+            # *** PAUSE FOR API REVIEW ***
+            print(f"[!] Low confidence {session_state.confidence_score:.2%} - Pausing for API review")
+            session_state.current_step_name = "Review (Awaiting User)"
+            return session_state  # Return with approval_status = None (workflow paused)
+
+        elif needs_review and not skip_human_review:
+            # *** USE CLI REVIEW (backward compat) ***
+            print(f"[!] Low confidence {session_state.confidence_score:.2%} - Using CLI review")
+            from main import human_review as cli_human_review
+            invoice_data = InvoiceData(**session_state.invoice_dict)
+            approved, _ = cli_human_review(invoice_data, session_state.extracted_text)
+            session_state.approval_status = approved
+        else:
+            # *** AUTO APPROVE ***
+            print(f"[+] Auto-approved (confidence {session_state.confidence_score:.2%} >= {Config.AUTO_APPROVE_CONFIDENCE:.2%})")
+            session_state.approval_status = True
+
+        print(f"[+] Step 4 Complete: Approval = {session_state.approval_status}")
+
+        # ============ STEP 5: PERSIST (Only if approved) ============
+        if session_state.approval_status is None:
+            # Still waiting for API review, don't continue
+            print(f"[!] Workflow paused at Step 4 - waiting for human review")
+            return session_state
+
+        session_state.current_step = 5
+        session_state.current_step_name = "Persist"
+
+        if session_state.approval_status:
+            invoice_data = InvoiceData(**session_state.invoice_dict)
+            invoice_id = save_to_database(invoice_data, db_tools)
+            session_state.invoice_id = invoice_id
+            print(f"[+] Step 5 Complete: Saved invoice ID {invoice_id}")
+        else:
+            print(f"[!] Invoice rejected - not saving")
+
+        return session_state
+
+    except Exception as e:
+        print(f"[!] Error in workflow: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        raise
 
 
 # ============================================================================

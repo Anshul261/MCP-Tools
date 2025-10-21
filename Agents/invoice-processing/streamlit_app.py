@@ -459,22 +459,44 @@ elif page == "📈 View Results":
     if result and result["invoices"]:
         st.write(f"Showing {len(result['invoices'])} of {result['total']} invoices")
 
-        # Display as table
-        st.dataframe(
-            [
-                {
+        # Display all columns from database
+        table_data = []
+        for inv in result["invoices"]:
+            try:
+                # Convert numeric strings to floats/decimals
+                net_total = float(inv.get("net_worth_total", 0)) if inv.get("net_worth_total") else 0
+                vat_amt = float(inv.get("vat_total", 0)) if inv.get("vat_total") else 0
+                gross_total = float(inv.get("gross_worth_total", 0)) if inv.get("gross_worth_total") else 0
+                confidence = float(inv.get("confidence_score", 0)) if inv.get("confidence_score") else 0
+                vat_pct = float(inv.get("vat_percent", 0)) if inv.get("vat_percent") else 0
+
+                table_data.append({
                     "ID": inv.get("id"),
                     "Invoice #": inv.get("invoice_no", "N/A"),
-                    "Seller": inv.get("seller_name", "N/A")[:30],
-                    "Client": inv.get("client_name", "N/A")[:30],
-                    "Total": f"${inv.get('gross_worth_total', 0):.2f}",
-                    "Confidence": f"{inv.get('confidence_score', 0):.1%}",
-                    "Date": inv.get("created_at", "N/A")[:10],
-                }
-                for inv in result["invoices"]
-            ],
-            use_container_width=True,
-        )
+                    "Date": str(inv.get("date_of_issue", "N/A")),
+                    "Seller": str(inv.get("seller_name", "N/A"))[:25],
+                    "Seller Address": str(inv.get("seller_address", "N/A"))[:20],
+                    "Seller Tax ID": str(inv.get("seller_tax_id", "N/A")),
+                    "Seller IBAN": str(inv.get("seller_iban", "N/A"))[:15],
+                    "Client": str(inv.get("client_name", "N/A"))[:25],
+                    "Client Address": str(inv.get("client_address", "N/A"))[:20],
+                    "Client Tax ID": str(inv.get("client_tax_id", "N/A")),
+                    "VAT %": f"{vat_pct:.2f}",
+                    "Net Total": f"${net_total:.2f}",
+                    "VAT Amount": f"${vat_amt:.2f}",
+                    "Gross Total": f"${gross_total:.2f}",
+                    "Confidence": f"{confidence:.1%}",
+                    "Created": str(inv.get("created_at", "N/A"))[:19],
+                })
+            except (ValueError, TypeError) as e:
+                # Skip rows with conversion errors
+                st.warning(f"Error processing row: {str(e)}")
+                continue
+
+        if table_data:
+            st.dataframe(table_data, use_container_width=True, height=400)
+        else:
+            st.warning("No valid invoices to display")
 
         # Pagination
         st.markdown("---")
