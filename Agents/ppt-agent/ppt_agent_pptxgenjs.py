@@ -14,6 +14,7 @@ This provides:
 from agno.agent import Agent
 from agno.tools.duckduckgo import DuckDuckGoTools
 from agno.tools.python import PythonTools
+from agno.tools.shell import ShellTools
 from agno.models.azure import AzureOpenAI
 from agno.team import Team
 import os
@@ -350,8 +351,28 @@ let slide1 = pres.addSlide();
 
 pres.writeFile({ fileName: "healthcare_ai.pptx" });
 
-MOST IMPORTANT: After generating the JavaScript code, you MUST use your PythonTools
-to write it to a file and execute it with Node.js. This is what creates the actual PPTX file.
+MOST IMPORTANT: After generating the JavaScript code, you have TWO ways to execute it:
+
+EXECUTION METHOD 1 (RECOMMENDED - Using ShellTools):
+Use the ShellTools run_shell_command to execute Node.js directly:
+- First, write the JavaScript code to a file: create_pptx.js
+- Then run: node create_pptx.js
+- This is the cleanest way to execute Node.js from the agent
+
+EXECUTION METHOD 2 (FALLBACK - Using PythonTools):
+Use Python with subprocess if ShellTools isn't available:
+```python
+import subprocess
+with open('create_pptx.js', 'w') as f:
+    f.write(js_code)
+result = subprocess.run(['node', 'create_pptx.js'], capture_output=True, text=True)
+```
+
+PREFERRED APPROACH: Use ShellTools with these steps:
+1. Write JavaScript code to file (use PythonTools or direct file write)
+2. Run: node create_pptx.js (use ShellTools run_shell_command)
+3. Verify PPTX file was created
+
 Do not just show code - EXECUTE IT!
 
 STRING ESCAPING REQUIREMENTS - CRITICAL:
@@ -396,7 +417,7 @@ designer_agent = Agent(
     role="Visual Design Specialist using PptxGenJS",
     model=llm,
     instructions=design_instructions,
-    tools=[PythonTools()],
+    tools=[PythonTools(), ShellTools()],
     markdown=True,
 )
 

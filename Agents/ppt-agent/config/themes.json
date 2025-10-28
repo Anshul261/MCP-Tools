@@ -1,0 +1,164 @@
+{
+  "themes": {
+    "corporate_blue": {
+      "name": "Corporate Blue",
+      "description": "Professional corporate theme with deep blue primary color",
+      "colors": {
+        "primary": "1F4E79",
+        "secondary": "4472C4",
+        "accent": "F3A612",
+        "dark": "2C3E50",
+        "light": "ECF0F1",
+        "white": "FFFFFF",
+        "text": "333333"
+      },
+      "typography": {
+        "title_size": 54,
+        "header_size": 40,
+        "body_size": 18,
+        "font_family": "Calibri"
+      },
+      "use_case": "Business, Finance, Corporate presentations"
+    },
+    "tech_modern": {
+      "name": "Tech Modern",
+      "description": "Modern tech theme with bright blue and orange accents",
+      "colors": {
+        "primary": "0066CC",
+        "secondary": "333333",
+        "accent": "FF6600",
+        "dark": "1A1A1A",
+        "light": "F5F5F5",
+        "white": "FFFFFF",
+        "text": "202020"
+      },
+      "typography": {
+        "title_size": 54,
+        "header_size": 40,
+        "body_size": 18,
+        "font_family": "Arial"
+      },
+      "use_case": "Technology, Startups, Innovation presentations"
+    },
+    "premium_dark": {
+      "name": "Premium Dark",
+      "description": "Sophisticated dark theme with premium gold accents",
+      "colors": {
+        "primary": "2C3E50",
+        "secondary": "3498DB",
+        "accent": "F39C12",
+        "dark": "1C2833",
+        "light": "ECF0F1",
+        "white": "FFFFFF",
+        "text": "2C3E50"
+      },
+      "typography": {
+        "title_size": 54,
+        "header_size": 40,
+        "body_size": 18,
+        "font_family": "Calibri"
+      },
+      "use_case": "Executive, Premium, Luxury brand presentations"
+    },
+    "modern_minimalist": {
+      "name": "Modern Minimalist",
+      "description": "Clean minimalist theme with purple and red accents",
+      "colors": {
+        "primary": "34495E",
+        "secondary": "9B59B6",
+        "accent": "E74C3C",
+        "dark": "2C3E50",
+        "light": "FAFAFA",
+        "white": "FFFFFF",
+        "text": "2C2C2C"
+      },
+      "typography": {
+        "title_size": 54,
+        "header_size": 40,
+        "body_size": 18,
+        "font_family": "Arial"
+      },
+      "use_case": "Creative, Design, Art presentations"
+    },
+    "healthcare": {
+      "name": "Healthcare",
+      "description": "Medical theme with teal and clean whites",
+      "colors": {
+        "primary": "0E7C86",
+        "secondary": "48D1CC",
+        "accent": "FF6B6B",
+        "dark": "1A3A3D",
+        "light": "F0F9FA",
+        "white": "FFFFFF",
+        "text": "1A3A3D"
+      },
+      "typography": {
+        "title_size": 54,
+        "header_size": 40,
+        "body_size": 18,
+        "font_family": "Calibri"
+      },
+      "use_case": "Medical, Healthcare, Pharmaceutical, Wellness presentations"
+    },
+    "academic": {
+      "name": "Academic",
+      "description": "Educational theme with deep navy and elegant styling",
+      "colors": {
+        "primary": "1F2937",
+        "secondary": "3B82F6",
+        "accent": "F59E0B",
+        "dark": "111827",
+        "light": "F3F4F6",
+        "white": "FFFFFF",
+        "text": "1F2937"
+      },
+      "typography": {
+        "title_size": 54,
+        "header_size": 40,
+        "body_size": 18,
+        "font_family": "Calibri"
+      },
+      "use_case": "University, Research, Educational, Conference presentations"
+    },
+    "creative": {
+      "name": "Creative",
+      "description": "Vibrant creative theme with bold colors and energy",
+      "colors": {
+        "primary": "FF6B35",
+        "secondary": "004E89",
+        "accent": "1DD1A1",
+        "dark": "0A1128",
+        "light": "FFF9E6",
+        "white": "FFFFFF",
+        "text": "1A1A1A"
+      },
+      "typography": {
+        "title_size": 54,
+        "header_size": 40,
+        "body_size": 18,
+        "font_family": "Arial"
+      },
+      "use_case": "Design, Marketing, Creative agencies, Event presentations"
+    },
+    "financial": {
+      "name": "Financial",
+      "description": "Finance-focused theme with green growth indicators",
+      "colors": {
+        "primary": "1B4D2C",
+        "secondary": "2D5A3D",
+        "accent": "27AE60",
+        "dark": "0D2818",
+        "light": "E8F5E9",
+        "white": "FFFFFF",
+        "text": "1B4D2C"
+      },
+      "typography": {
+        "title_size": 54,
+        "header_size": 40,
+        "body_size": 18,
+        "font_family": "Calibri"
+      },
+      "use_case": "Finance, Banking, Investment, Economics presentations"
+    }
+  }
+}
