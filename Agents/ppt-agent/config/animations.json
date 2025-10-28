@@ -1,0 +1,160 @@
+{
+  "animations": {
+    "entrance": {
+      "fade": {
+        "name": "Fade In",
+        "pptxgenjs_method": "fade",
+        "duration": 0.5,
+        "description": "Content fades in smoothly"
+      },
+      "slide_left": {
+        "name": "Slide from Left",
+        "pptxgenjs_method": "slideLeft",
+        "duration": 0.6,
+        "description": "Content slides in from the left"
+      },
+      "slide_right": {
+        "name": "Slide from Right",
+        "pptxgenjs_method": "slideRight",
+        "duration": 0.6,
+        "description": "Content slides in from the right"
+      },
+      "slide_down": {
+        "name": "Slide from Top",
+        "pptxgenjs_method": "slideDown",
+        "duration": 0.6,
+        "description": "Content slides in from the top"
+      },
+      "zoom": {
+        "name": "Zoom In",
+        "pptxgenjs_method": "zoom",
+        "duration": 0.5,
+        "description": "Content zooms in from center"
+      },
+      "grow": {
+        "name": "Grow",
+        "pptxgenjs_method": "grow",
+        "duration": 0.5,
+        "description": "Content grows from small to full size"
+      }
+    },
+    "exit": {
+      "fade": {
+        "name": "Fade Out",
+        "pptxgenjs_method": "fade",
+        "duration": 0.5,
+        "description": "Content fades out"
+      },
+      "slide_left": {
+        "name": "Slide to Left",
+        "pptxgenjs_method": "slideLeft",
+        "duration": 0.6,
+        "description": "Content slides out to the left"
+      },
+      "slide_right": {
+        "name": "Slide to Right",
+        "pptxgenjs_method": "slideRight",
+        "duration": 0.6,
+        "description": "Content slides out to the right"
+      },
+      "shrink": {
+        "name": "Shrink",
+        "pptxgenjs_method": "shrink",
+        "duration": 0.5,
+        "description": "Content shrinks to nothing"
+      }
+    },
+    "emphasis": {
+      "pulse": {
+        "name": "Pulse",
+        "pptxgenjs_method": "pulse",
+        "duration": 0.75,
+        "description": "Content pulses to emphasize"
+      },
+      "glow": {
+        "name": "Glow",
+        "pptxgenjs_method": "glow",
+        "duration": 0.75,
+        "description": "Content glows with emphasis"
+      },
+      "grow": {
+        "name": "Grow",
+        "pptxgenjs_method": "grow",
+        "duration": 0.5,
+        "description": "Content grows slightly for emphasis"
+      },
+      "color_wave": {
+        "name": "Color Wave",
+        "pptxgenjs_method": "colorWave",
+        "duration": 1.0,
+        "description": "Color changes wave across content"
+      }
+    },
+    "transitions": {
+      "fade": {
+        "name": "Fade",
+        "pptxgenjs_method": "fade",
+        "duration": 0.5,
+        "description": "Slide fades to next slide"
+      },
+      "push": {
+        "name": "Push",
+        "pptxgenjs_method": "push",
+        "duration": 0.6,
+        "description": "Next slide pushes current slide away"
+      },
+      "wipe": {
+        "name": "Wipe",
+        "pptxgenjs_method": "wipe",
+        "duration": 0.6,
+        "description": "Wipe transition between slides"
+      },
+      "cover": {
+        "name": "Cover",
+        "pptxgenjs_method": "cover",
+        "duration": 0.6,
+        "description": "Next slide covers current slide"
+      },
+      "uncover": {
+        "name": "Uncover",
+        "pptxgenjs_method": "uncover",
+        "duration": 0.6,
+        "description": "Current slide uncovers next slide"
+      }
+    }
+  },
+  "presets": {
+    "subtle": {
+      "name": "Subtle",
+      "description": "Minimal, professional animations",
+      "entrance": "fade",
+      "exit": "fade",
+      "emphasis": null,
+      "transition": "fade"
+    },
+    "dynamic": {
+      "name": "Dynamic",
+      "description": "Energetic animations for engagement",
+      "entrance": "slide_left",
+      "exit": "slide_right",
+      "emphasis": "pulse",
+      "transition": "push"
+    },
+    "professional": {
+      "name": "Professional",
+      "description": "Business-appropriate animations",
+      "entrance": "slide_right",
+      "exit": "fade",
+      "emphasis": "glow",
+      "transition": "fade"
+    },
+    "creative": {
+      "name": "Creative",
+      "description": "Bold, creative animations",
+      "entrance": "zoom",
+      "exit": "shrink",
+      "emphasis": "color_wave",
+      "transition": "wipe"
+    }
+  }
+}
