@@ -17,17 +17,18 @@ Setup:
 
 import asyncio  # noqa: F401
 import os
+
 from dotenv import load_dotenv
 
 load_dotenv()
 
 from agno.agent import Agent
+from agno.knowledge.embedder.ollama import OllamaEmbedder
 from agno.knowledge.knowledge import Knowledge
+from agno.models.azure import AzureOpenAI
 from agno.models.openai import OpenAIChat
 from agno.team.team import Team
 from agno.vectordb.pgvector import PgVector, SearchType
-from agno.knowledge.embedder.ollama import OllamaEmbedder
-from agno.models.azure import AzureOpenAI
 
 # Database connection URL
 db_url = "postgresql+psycopg://ai:ai@localhost:5533/ai"
@@ -38,7 +39,9 @@ vector_knowledge = Knowledge(
         table_name="recipes_vector",
         db_url=db_url,
         search_type=SearchType.vector,
-        embedder=OllamaEmbedder(id="embeddinggemma", dimensions=768),
+        embedder=OllamaEmbedder(
+            id="nomic-embed-text", dimensions=768, host="http://localhost:11434"
+        ),
     ),
 )
 llm = AzureOpenAI(
@@ -54,7 +57,9 @@ hybrid_knowledge = Knowledge(
         table_name="recipes_hybrid",
         db_url=db_url,
         search_type=SearchType.hybrid,
-        embedder=OllamaEmbedder(id="embeddinggemma", dimensions=768),
+        embedder=OllamaEmbedder(
+            id="nomic-embed-text", dimensions=768, host="http://localhost:11434"
+        ),
     ),
 )
 
@@ -149,10 +154,10 @@ async def async_pgvector_rag_demo():
     try:
         # Add content to knowledge bases
         await vector_knowledge.add_contents_async(
-            url="https://agno-public.s3.amazonaws.com/recipes/ThaiRecipes.pdf"
+            urls=["https://agno-public.s3.amazonaws.com/recipes/ThaiRecipes.pdf"]
         )
         await hybrid_knowledge.add_contents_async(
-            url="https://agno-public.s3.amazonaws.com/recipes/ThaiRecipes.pdf"
+            urls=["https://agno-public.s3.amazonaws.com/recipes/ThaiRecipes.pdf"]
         )
         # Run async distributed PgVector RAG
         await distributed_pgvector_team.aprint_response(input=query)
@@ -172,10 +177,10 @@ def sync_pgvector_rag_demo():
     try:
         # Add content to knowledge bases
         vector_knowledge.add_contents(
-            url="https://agno-public.s3.amazonaws.com/recipes/ThaiRecipes.pdf"
+            urls=["https://agno-public.s3.amazonaws.com/recipes/ThaiRecipes.pdf"]
         )
         hybrid_knowledge.add_contents(
-            url="https://agno-public.s3.amazonaws.com/recipes/ThaiRecipes.pdf"
+            urls=["https://agno-public.s3.amazonaws.com/recipes/ThaiRecipes.pdf"]
         )
         # Run distributed PgVector RAG
         distributed_pgvector_team.print_response(input=query)
@@ -200,10 +205,10 @@ def complex_query_demo():
     try:
         # Add content to knowledge bases
         vector_knowledge.add_contents(
-            url="https://agno-public.s3.amazonaws.com/recipes/ThaiRecipes.pdf"
+            urls=["https://agno-public.s3.amazonaws.com/recipes/ThaiRecipes.pdf"]
         )
         hybrid_knowledge.add_contents(
-            url="https://agno-public.s3.amazonaws.com/recipes/ThaiRecipes.pdf"
+            urls=["https://agno-public.s3.amazonaws.com/recipes/ThaiRecipes.pdf"]
         )
 
         distributed_pgvector_team.print_response(input=query)
