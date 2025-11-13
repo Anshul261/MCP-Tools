@@ -1,22 +1,22 @@
-import json
-import os
-import dotenv
-from typing import Literal
-
 # import langwatch
 # from openinference.instrumentation.agno import AgnoInstrumentor
 import asyncio
+import datetime
+import json
+import os
+from typing import Literal
 
+import dotenv
+from agno.agent import Agent
+
+# from agno.models.openai import OpenAIChat
+from agno.models.azure import AzureOpenAI
 from mocked_apis import (
     http_GET_company_policy,
     http_GET_customer_order_history,
     http_GET_order_status,
     http_GET_troubleshooting_guide,
 )
-from agno.agent import Agent
-
-# from agno.models.openai import OpenAIChat
-from agno.models.azure import AzureOpenAI
 
 dotenv.load_dotenv()
 
@@ -33,7 +33,7 @@ llm = AzureOpenAI(
 )
 
 
-SYSTEM_PROMPT = """
+SYSTEM_PROMPT = f"""
 <Introduction>
 You are an AI customer service agent for XPTO Telecom, a telecommunications company providing internet, mobile, and television services, as well as selling mobile devices and related electronics. Your primary goal is to assist customers with their inquiries efficiently and effectively. You should always strive to provide helpful, accurate, and polite responses.
 
@@ -89,7 +89,7 @@ Example:
 </Tone>
 
 <Info>
-Today is 2025-04-19
+Today is {datetime.datetime.now().strftime("%Y-%m-%d")}
 </Info>
 """
 
