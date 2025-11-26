@@ -23,6 +23,7 @@ from dotenv import load_dotenv
 load_dotenv()
 
 from agno.agent import Agent
+from agno.db.postgres import PostgresDb
 from agno.knowledge.embedder.ollama import OllamaEmbedder
 from agno.knowledge.knowledge import Knowledge
 from agno.models.azure import AzureOpenAI
@@ -32,7 +33,7 @@ from agno.vectordb.pgvector import PgVector, SearchType
 
 # Database connection URL
 db_url = "postgresql+psycopg://ai:ai@localhost:5533/ai"
-
+db = PostgresDb(db_url=db_url)
 # Vector-focused knowledge base for similarity search
 vector_knowledge = Knowledge(
     vector_db=PgVector(
@@ -140,6 +141,8 @@ distributed_pgvector_team = Team(
         "Ensure enterprise-grade reliability and accuracy.",
     ],
     show_members_responses=True,
+    db=db,
+    enable_agentic_memory=True,
     markdown=True,
 )
 
