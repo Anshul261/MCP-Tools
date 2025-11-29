@@ -51,6 +51,7 @@ dependencies = [
     "imageio>=2.37.0",
     "itsdangerous>=2.2.0",
     "joblib>=1.5.2",
+    "jwt>=1.4.0",
     "langchain>=0.3.27",
     "langchain-anthropic>=0.3.19",
     "langchain-community>=0.3.29",
