@@ -105,3 +105,113 @@ export async function getAPIInfo(): Promise<any> {
     return null
   }
 }
+
+// ============================================================================
+// Session Management
+// ============================================================================
+
+export interface Session {
+  session_id: string
+  session_name: string
+  session_state?: any
+  created_at: string
+  updated_at: string
+}
+
+export interface SessionsResponse {
+  data: Session[]
+  meta: {
+    page: number
+    limit: number
+    total_pages: number
+    total_count: number
+  }
+}
+
+export interface SessionRun {
+  run_id: string
+  run_input: string
+  content: string
+  created_at: string
+  metrics?: any
+}
+
+/**
+ * List all sessions for the agent
+ */
+export async function listSessions(
+  page: number = 1,
+  limit: number = 20
+): Promise<SessionsResponse | null> {
+  try {
+    const response = await fetch(
+      `${API_BASE_URL}/sessions?type=agent&page=${page}&limit=${limit}&sort_by=updated_at&sort_order=desc`
+    )
+    if (!response.ok) return null
+    return await response.json()
+  } catch (error) {
+    console.error("Failed to list sessions:", error)
+    return null
+  }
+}
+
+/**
+ * Get session details including chat history
+ */
+export async function getSession(sessionId: string): Promise<any> {
+  try {
+    const response = await fetch(`${API_BASE_URL}/sessions/${sessionId}?type=agent`)
+    if (!response.ok) return null
+    return await response.json()
+  } catch (error) {
+    console.error("Failed to get session:", error)
+    return null
+  }
+}
+
+/**
+ * Get all runs (messages) for a session
+ */
+export async function getSessionRuns(sessionId: string): Promise<SessionRun[]> {
+  try {
+    const response = await fetch(`${API_BASE_URL}/sessions/${sessionId}/runs?type=agent`)
+    if (!response.ok) return []
+    const data = await response.json()
+    return Array.isArray(data) ? data : []
+  } catch (error) {
+    console.error("Failed to get session runs:", error)
+    return []
+  }
+}
+
+/**
+ * Create a new session
+ */
+export async function createSession(sessionName?: string): Promise<string | null> {
+  try {
+    const sessionId = `session_${Date.now()}`
+    const response = await fetch(`${API_BASE_URL}/sessions?type=agent`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        session_id: sessionId,
+        session_name: sessionName || `Chat ${new Date().toLocaleString()}`,
+        agent_id: AGENT_ID,
+      }),
+    })
+
+    if (!response.ok) {
+      // Session might auto-create on first run, return the ID anyway
+      return sessionId
+    }
+
+    const data = await response.json()
+    return data.session_id || sessionId
+  } catch (error) {
+    console.error("Failed to create session:", error)
+    // Return a new session ID anyway - it will be created on first message
+    return `session_${Date.now()}`
+  }
+}
