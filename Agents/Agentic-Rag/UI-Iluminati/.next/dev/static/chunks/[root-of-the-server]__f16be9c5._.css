@@ -1317,6 +1317,10 @@
     max-width: var(--container-md);
   }
 
+  .max-w-none {
+    max-width: none;
+  }
+
   .max-w-sm {
     max-width: var(--container-sm);
   }

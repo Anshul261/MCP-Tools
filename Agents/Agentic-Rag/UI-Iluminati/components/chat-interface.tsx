@@ -3,6 +3,8 @@
 import type React from "react"
 
 import { useState, useRef, useEffect } from "react"
+import ReactMarkdown from "react-markdown"
+import remarkGfm from "remark-gfm"
 import { sendMessageToAgent } from "@/lib/api"
 import {
   Send,
@@ -536,9 +538,13 @@ export function ChatInterface() {
                       message.role === "user" ? "bg-primary text-primary-foreground" : "bg-card border border-border",
                     )}
                   >
-                    <p className={cn("text-sm leading-relaxed", message.role === "user" ? "font-sans" : "font-serif")}>
-                      {message.content}
-                    </p>
+                    {message.role === "assistant" ? (
+                      <div className="prose prose-sm dark:prose-invert max-w-none">
+                        <ReactMarkdown remarkPlugins={[remarkGfm]}>{message.content}</ReactMarkdown>
+                      </div>
+                    ) : (
+                      <p className="text-sm leading-relaxed font-sans">{message.content}</p>
+                    )}
                   </div>
                   {message.role === "user" && (
                     <div className="w-8 h-8 rounded-sm bg-muted flex items-center justify-center shrink-0">
