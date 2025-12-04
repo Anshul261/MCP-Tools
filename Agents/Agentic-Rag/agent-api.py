@@ -1,9 +1,5 @@
 """
 AgentOS API for Distributed PgVector RAG System
-
-This module provides a production-ready REST API for the multi-agent RAG system
-using AgentOS framework with the following capabilities:
-
 Features:
 - Session Management (create, retrieve, update sessions)
 - Knowledge Upload (PDFs, URLs, text content)
