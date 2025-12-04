@@ -5,7 +5,7 @@ import type React from "react"
 import { useState, useRef, useEffect } from "react"
 import ReactMarkdown from "react-markdown"
 import remarkGfm from "remark-gfm"
-import { sendMessageToAgent } from "@/lib/api"
+import { sendMessageToAgent, listSessions, getSessionRuns, createSession, type Session, type SessionRun } from "@/lib/api"
 import {
   Send,
   Sparkles,
@@ -65,7 +65,7 @@ export function ChatInterface() {
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
-  const [sessionId] = useState<string>(() => `session_${Date.now()}`)
+  const [sessionId, setSessionId] = useState<string>(() => `session_${Date.now()}`)
   const [uploadedFiles, setUploadedFiles] = useState<File[]>([]) // Files for general chat
 
   const [activeTab, setActiveTab] = useState<"chats" | "projects">("chats")
@@ -79,29 +79,8 @@ export function ChatInterface() {
     { id: "3", name: "API Documentation", description: "REST API specs", chatCount: 2, files: [] },
   ])
 
-  const [chatHistory] = useState<ChatHistory[]>([
-    {
-      id: "1",
-      title: "Code Review Help",
-      timestamp: "Today",
-      preview: "Can you review my React component...",
-      projectId: "1",
-    },
-    {
-      id: "2",
-      title: "API Integration",
-      timestamp: "Yesterday",
-      preview: "How do I connect to a REST API...",
-      projectId: "2",
-    },
-    {
-      id: "3",
-      title: "Database Design",
-      timestamp: "2 days ago",
-      preview: "What's the best schema for...",
-    },
-    { id: "4", title: "CSS Animations", timestamp: "Last week", preview: "How can I create smooth transitions..." },
-  ])
+  const [sessions, setSessions] = useState<Session[]>([])
+  const [loadingSessions, setLoadingSessions] = useState(false)
 
   useEffect(() => {
     if (isDark) {
@@ -110,6 +89,74 @@ export function ChatInterface() {
       document.documentElement.classList.remove("dark")
     }
   }, [isDark])
+
+  // Load sessions on component mount
+  useEffect(() => {
+    loadSessions()
+  }, [])
+
+  const loadSessions = async () => {
+    setLoadingSessions(true)
+    try {
+      const response = await listSessions(1, 50)
+      if (response && response.data) {
+        setSessions(response.data)
+      }
+    } catch (error) {
+      console.error("Failed to load sessions:", error)
+    } finally {
+      setLoadingSessions(false)
+    }
+  }
+
+  const loadSessionMessages = async (session: Session) => {
+    try {
+      console.log("[UI] Loading session:", session.session_id)
+      const runs = await getSessionRuns(session.session_id)
+
+      // Convert runs to messages
+      const loadedMessages: Message[] = []
+      runs.forEach((run) => {
+        // Add user message
+        if (run.run_input) {
+          loadedMessages.push({
+            id: `${run.run_id}-input`,
+            role: "user",
+            content: run.run_input,
+          })
+        }
+        // Add assistant message
+        if (run.content) {
+          loadedMessages.push({
+            id: run.run_id,
+            role: "assistant",
+            content: run.content,
+          })
+        }
+      })
+
+      setMessages(loadedMessages)
+      setSessionId(session.session_id)
+      console.log(`[UI] Loaded ${loadedMessages.length} messages from session`)
+    } catch (error) {
+      console.error("Failed to load session messages:", error)
+    }
+  }
+
+  const handleNewChat = async () => {
+    setMessages([])
+    setUploadedFiles([])
+    setSelectedProject(null)
+
+    // Create a new session
+    const newSessionId = await createSession()
+    if (newSessionId) {
+      setSessionId(newSessionId)
+      console.log("[UI] Created new session:", newSessionId)
+      // Reload sessions list
+      loadSessions()
+    }
+  }
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" })
@@ -261,10 +308,6 @@ export function ChatInterface() {
     return (bytes / (1024 * 1024)).toFixed(1) + " MB"
   }
 
-  const filteredChats = selectedProject
-    ? chatHistory.filter((chat) => chat.projectId === selectedProject.id)
-    : chatHistory
-
   return (
     <div className="flex h-screen">
       <aside
@@ -276,10 +319,7 @@ export function ChatInterface() {
         <div className="p-4 border-b border-sidebar-border space-y-3">
           <Button
             variant="outline"
-            onClick={() => {
-              setSelectedProject(null)
-              setMessages([])
-            }}
+            onClick={handleNewChat}
             className="w-full justify-start gap-2 font-mono text-xs uppercase tracking-wider rounded-sm bg-transparent border-border hover:bg-sidebar-accent"
           >
             <Plus className="w-4 h-4" />
@@ -312,28 +352,62 @@ export function ChatInterface() {
           {activeTab === "chats" ? (
             <>
               <h3 className="font-mono text-xs uppercase tracking-widest text-muted-foreground mb-4">
-                {selectedProject ? `${selectedProject.name} Chats` : "Recent Chats"}
+                {selectedProject ? `${selectedProject.name} Chats` : "Recent Conversations"}
               </h3>
-              <div className="space-y-2">
-                {filteredChats.map((chat) => (
-                  <button
-                    key={chat.id}
-                    className="w-full text-left p-3 rounded-sm border border-transparent hover:bg-sidebar-accent hover:border-sidebar-border transition-colors group"
-                  >
-                    <div className="flex items-start gap-3">
-                      <MessageSquare className="w-4 h-4 text-muted-foreground mt-0.5 shrink-0" />
-                      <div className="flex-1 min-w-0">
-                        <p className="font-serif text-sm font-medium text-sidebar-foreground truncate">{chat.title}</p>
-                        <p className="font-mono text-xs text-muted-foreground truncate mt-1">{chat.preview}</p>
-                        <div className="flex items-center gap-1 mt-2">
-                          <Clock className="w-3 h-3 text-muted-foreground" />
-                          <span className="font-mono text-xs text-muted-foreground">{chat.timestamp}</span>
+              {loadingSessions ? (
+                <div className="text-center py-8">
+                  <p className="font-mono text-xs text-muted-foreground">Loading sessions...</p>
+                </div>
+              ) : sessions.length === 0 ? (
+                <div className="text-center py-8">
+                  <MessageSquare className="w-8 h-8 text-muted-foreground mx-auto mb-2" />
+                  <p className="font-mono text-xs text-muted-foreground">No conversations yet</p>
+                  <p className="font-mono text-xs text-muted-foreground mt-1">Start a new chat to begin</p>
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  {sessions.map((session) => {
+                    const isActive = session.session_id === sessionId
+                    const sessionDate = new Date(session.updated_at)
+                    const now = new Date()
+                    const diffHours = (now.getTime() - sessionDate.getTime()) / (1000 * 60 * 60)
+                    const timeLabel =
+                      diffHours < 1
+                        ? "Just now"
+                        : diffHours < 24
+                        ? "Today"
+                        : diffHours < 48
+                        ? "Yesterday"
+                        : sessionDate.toLocaleDateString()
+
+                    return (
+                      <button
+                        key={session.session_id}
+                        onClick={() => loadSessionMessages(session)}
+                        className={cn(
+                          "w-full text-left p-3 rounded-sm border transition-colors group",
+                          isActive
+                            ? "bg-sidebar-accent border-primary"
+                            : "border-transparent hover:bg-sidebar-accent hover:border-sidebar-border"
+                        )}
+                      >
+                        <div className="flex items-start gap-3">
+                          <MessageSquare className={cn("w-4 h-4 mt-0.5 shrink-0", isActive ? "text-primary" : "text-muted-foreground")} />
+                          <div className="flex-1 min-w-0">
+                            <p className="font-serif text-sm font-medium text-sidebar-foreground truncate">
+                              {session.session_name}
+                            </p>
+                            <div className="flex items-center gap-1 mt-2">
+                              <Clock className="w-3 h-3 text-muted-foreground" />
+                              <span className="font-mono text-xs text-muted-foreground">{timeLabel}</span>
+                            </div>
+                          </div>
                         </div>
-                      </div>
-                    </div>
-                  </button>
-                ))}
-              </div>
+                      </button>
+                    )
+                  })}
+                </div>
+              )}
             </>
           ) : (
             <>
@@ -385,7 +459,7 @@ export function ChatInterface() {
 
         <div className="p-4 border-t border-sidebar-border">
           <div className="font-mono text-xs text-muted-foreground uppercase tracking-wider text-center">
-            {activeTab === "chats" ? `${filteredChats.length} Conversations` : `${projects.length} Projects`}
+            {activeTab === "chats" ? `${sessions.length} Conversations` : `${projects.length} Projects`}
           </div>
         </div>
       </aside>
