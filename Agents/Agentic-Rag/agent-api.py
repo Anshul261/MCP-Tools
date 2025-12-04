@@ -5,12 +5,12 @@ This module provides a production-ready REST API for the multi-agent RAG system
 using AgentOS framework with the following capabilities:
 
 Features:
-- JWT Authentication & Authorization
 - Session Management (create, retrieve, update sessions)
 - Knowledge Upload (PDFs, URLs, text content)
 - Team Execution with streaming responses
 - User isolation and memory persistence
 - Automatic API documentation (FastAPI/OpenAPI)
+- JWT Authentication (optional - currently disabled)
 
 Endpoints:
 - POST /teams/{team_id}/runs - Execute RAG queries
@@ -26,7 +26,6 @@ Setup:
    - AZURE_OPENAI_API_KEY
    - AZURE_OPENAI_ENDPOINT
    - AZURE_OPENAI_DEPLOYMENT_NAME
-   - JWT_SECRET_KEY (for authentication)
 
 2. Run PostgreSQL with pgvector:
    docker run -d --name agno-postgres \
@@ -41,7 +40,6 @@ Setup:
 
 Usage:
    curl -X POST "http://localhost:7777/teams/distributed-pgvector-rag-team/runs" \
-     -H "Authorization: Bearer <your-jwt-token>" \
      -H "Content-Type: multipart/form-data" \
      -F "message=How do I make Tom Kha Gai?" \
      -F "stream=true"
@@ -60,8 +58,10 @@ from agno.knowledge.embedder.ollama import OllamaEmbedder
 from agno.knowledge.knowledge import Knowledge
 from agno.models.azure import AzureOpenAI
 from agno.os import AgentOS
-from agno.os.middleware import JWTMiddleware
-from agno.os.middleware.jwt import TokenSource
+
+# JWT middleware imports removed - can be re-added later for production authentication
+# from agno.os.middleware import JWTMiddleware
+# from agno.os.middleware.jwt import TokenSource
 from agno.team.team import Team
 from agno.vectordb.pgvector import PgVector, SearchType
 
@@ -75,11 +75,11 @@ OLLAMA_HOST = os.getenv("OLLAMA_HOST", "http://localhost:11434")
 EMBEDDING_MODEL = os.getenv("EMBEDDING_MODEL", "nomic-embed-text")
 EMBEDDING_DIMENSIONS = int(os.getenv("EMBEDDING_DIMENSIONS", "768"))
 
-# JWT Configuration
-JWT_SECRET_KEY = os.getenv(
-    "JWT_SECRET_KEY", "your-super-secret-key-change-in-production"
-)
-JWT_ALGORITHM = os.getenv("JWT_ALGORITHM", "HS256")
+# JWT Configuration - commented out, can be re-enabled later
+# JWT_SECRET_KEY = os.getenv(
+#     "JWT_SECRET_KEY", "your-super-secret-key-change-in-production"
+# )
+# JWT_ALGORITHM = os.getenv("JWT_ALGORITHM", "HS256")
 
 # Server configuration
 API_HOST = os.getenv("API_HOST", "0.0.0.0")
@@ -263,28 +263,25 @@ app = agent_os.get_app()
 # Middleware Configuration
 # ============================================================================
 
-# Add JWT authentication middleware
-# This will:
-# - Extract JWT tokens from Authorization header or cookies
-# - Validate token signature and expiration
-# - Inject user_id and session_id into requests
-# - Filter sessions by user automatically
-app.add_middleware(
-    JWTMiddleware,
-    secret_key=JWT_SECRET_KEY,
-    algorithm=JWT_ALGORITHM,
-    token_source=TokenSource.BOTH,  # Accept both header and cookie
-    user_id_claim="sub",  # Extract user_id from 'sub' claim
-    session_id_claim="session_id",  # Extract session_id from claim
-    dependencies_claims=["email", "name", "roles"],  # Additional claims to inject
-    validate=True,  # Enable token validation
-    excluded_route_paths=[
-        "/health",
-        "/docs",
-        "/redoc",
-        "/openapi.json",
-    ],  # Routes that don't require auth
-)
+# JWT authentication middleware - DISABLED for now
+# Uncomment and configure when you need authentication in production
+#
+# app.add_middleware(
+#     JWTMiddleware,
+#     secret_key=JWT_SECRET_KEY,
+#     algorithm=JWT_ALGORITHM,
+#     token_source=TokenSource.BOTH,  # Accept both header and cookie
+#     user_id_claim="sub",  # Extract user_id from 'sub' claim
+#     session_id_claim="session_id",  # Extract session_id from claim
+#     dependencies_claims=["email", "name", "roles"],  # Additional claims to inject
+#     validate=True,  # Enable token validation
+#     excluded_route_paths=[
+#         "/health",
+#         "/docs",
+#         "/redoc",
+#         "/openapi.json",
+#     ],  # Routes that don't require auth
+# )
 
 # ============================================================================
 # Custom Endpoints
@@ -391,7 +388,7 @@ async def startup_event():
     print("Starting Distributed RAG API")
     print("=" * 80)
     print(f"Database: {DB_URL}")
-    print(f"JWT Auth: {'Enabled' if JWT_SECRET_KEY else 'Disabled'}")
+    print(f"JWT Auth: Disabled")
     print(f"Teams: {len([distributed_pgvector_team])}")
     print(f"Knowledge Bases: {len([vector_knowledge, hybrid_knowledge])}")
     print(f"API Docs: http://{API_HOST}:{API_PORT}/docs")
