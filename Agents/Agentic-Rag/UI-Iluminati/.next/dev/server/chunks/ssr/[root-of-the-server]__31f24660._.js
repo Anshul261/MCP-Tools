@@ -326,8 +326,7 @@ function ChatInterface() {
     const textareaRef = (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["useRef"])(null);
     const fileInputRef = (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["useRef"])(null);
     const [sessionId, setSessionId] = (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["useState"])(()=>`session_${Date.now()}`);
-    const [uploadedFiles, setUploadedFiles] = (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["useState"])([]) // Files for general chat
-    ;
+    const [uploadedFiles, setUploadedFiles] = (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["useState"])([]); // Files for general chat
     const [activeTab, setActiveTab] = (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["useState"])("chats");
     const [showNewProjectModal, setShowNewProjectModal] = (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["useState"])(false);
     const [newProjectName, setNewProjectName] = (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["useState"])("");
@@ -358,6 +357,9 @@ function ChatInterface() {
     ]);
     const [sessions, setSessions] = (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["useState"])([]);
     const [loadingSessions, setLoadingSessions] = (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["useState"])(false);
+    // Agent trace state
+    const [currentAgentSteps, setCurrentAgentSteps] = (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["useState"])([]);
+    const [currentProgress, setCurrentProgress] = (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["useState"])("");
     (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["useEffect"])(()=>{
         if (isDark) {
             document.documentElement.classList.add("dark");
@@ -453,6 +455,8 @@ function ChatInterface() {
         const currentInput = input.trim();
         setInput("");
         setIsLoading(true);
+        setCurrentAgentSteps([]);
+        setCurrentProgress("");
         // ONLY call the agent API in general chat mode (NOT in project mode)
         if (!selectedProject) {
             try {
@@ -461,40 +465,153 @@ function ChatInterface() {
                     filesCount: uploadedFiles.length,
                     sessionId
                 });
-                // Call the document agent API
-                const response = await (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$api$2e$ts__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["sendMessageToAgent"])(currentInput, uploadedFiles.length > 0 ? uploadedFiles : undefined, sessionId);
-                console.log("[UI] Agent response received:", response);
-                // Clear uploaded files after sending
-                setUploadedFiles([]);
-                if (response.error) {
-                    // Show error message
-                    const errorMessage = {
-                        id: (Date.now() + 1).toString(),
+                // Create FormData for streaming endpoint
+                const formData = new FormData();
+                formData.append("message", currentInput);
+                formData.append("stream", "true");
+                formData.append("monitor", "true");
+                if (sessionId) {
+                    formData.append("session_id", sessionId);
+                }
+                // Attach files if provided
+                if (uploadedFiles.length > 0) {
+                    uploadedFiles.forEach((file)=>{
+                        formData.append("files", file);
+                    });
+                }
+                const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:7777";
+                const response = await fetch(`${apiUrl}/agents/doc-agent/runs`, {
+                    method: "POST",
+                    body: formData
+                });
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                // Handle streaming response
+                if (response.body) {
+                    const reader = response.body.getReader();
+                    const decoder = new TextDecoder();
+                    let accumulatedContent = "";
+                    let buffer = "";
+                    // Add initial AI message
+                    const aiMessageId = (Date.now() + 1).toString();
+                    const initialAiMessage = {
+                        id: aiMessageId,
                         role: "assistant",
-                        content: `Error: ${response.error}. Please make sure the API is running at http://localhost:7777`
+                        content: ""
                     };
                     setMessages((prev)=>[
                             ...prev,
-                            errorMessage
+                            initialAiMessage
                         ]);
+                    try {
+                        while(true){
+                            const { done, value } = await reader.read();
+                            if (done) break;
+                            const chunk = decoder.decode(value, {
+                                stream: true
+                            });
+                            buffer += chunk;
+                            // Process complete lines from buffer
+                            const lines = buffer.split("\n");
+                            buffer = lines.pop() || "";
+                            let currentEvent = "";
+                            for (const line of lines){
+                                if (line.startsWith("event: ")) {
+                                    currentEvent = line.slice(7).trim();
+                                } else if (line.startsWith("data: ")) {
+                                    try {
+                                        const data = JSON.parse(line.slice(6));
+                                        if (currentEvent === "RunContent" && data.content) {
+                                            accumulatedContent += data.content;
+                                            setMessages((prev)=>prev.map((msg)=>msg.id === aiMessageId ? {
+                                                        ...msg,
+                                                        content: accumulatedContent
+                                                    } : msg));
+                                        } else if (currentEvent === "ToolCallStarted") {
+                                            const step = {
+                                                type: "tool_call",
+                                                title: `Using ${data.tool?.tool_name || "tool"}`,
+                                                description: data.tool?.tool_name === "read_document" ? "Reading and extracting document content" : "Processing request",
+                                                timestamp: new Date().toLocaleTimeString(),
+                                                tool: data.tool?.tool_name,
+                                                agent: "doc-agent",
+                                                status: "running"
+                                            };
+                                            setCurrentAgentSteps((prev)=>[
+                                                    ...prev,
+                                                    step
+                                                ]);
+                                            setCurrentProgress(`Using ${data.tool?.tool_name || "tool"}...`);
+                                        } else if (currentEvent === "ToolCallCompleted") {
+                                            const step = {
+                                                type: "tool_call",
+                                                title: `Completed ${data.tool?.tool_name || "tool"}`,
+                                                description: data.tool?.metrics?.duration ? `Finished in ${data.tool.metrics.duration.toFixed(2)}s` : "Completed successfully",
+                                                timestamp: new Date().toLocaleTimeString(),
+                                                tool: data.tool?.tool_name,
+                                                agent: "doc-agent",
+                                                status: "completed"
+                                            };
+                                            setCurrentAgentSteps((prev)=>[
+                                                    ...prev,
+                                                    step
+                                                ]);
+                                            setCurrentProgress("");
+                                        } else if (currentEvent === "RunStarted") {
+                                            const step = {
+                                                type: "agent_start",
+                                                title: "Agent started processing",
+                                                description: "Document Q&A Agent is analyzing your request",
+                                                timestamp: new Date().toLocaleTimeString(),
+                                                agent: "doc-agent",
+                                                status: "running"
+                                            };
+                                            setCurrentAgentSteps((prev)=>[
+                                                    ...prev,
+                                                    step
+                                                ]);
+                                            setCurrentProgress("Processing...");
+                                        }
+                                    } catch (parseError) {
+                                        console.debug("Parse error:", parseError);
+                                    }
+                                }
+                            }
+                        }
+                        // Streaming complete - attach steps to message
+                        setMessages((prev)=>prev.map((msg)=>msg.id === aiMessageId ? {
+                                    ...msg,
+                                    agentSteps: [
+                                        ...currentAgentSteps
+                                    ]
+                                } : msg));
+                    } finally{
+                        reader.releaseLock();
+                        setCurrentAgentSteps([]);
+                        setCurrentProgress("");
+                    }
                 } else {
-                    // Show agent's response
+                    // Fallback for non-streaming
+                    const data = await response.json();
                     const assistantMessage = {
                         id: (Date.now() + 1).toString(),
                         role: "assistant",
-                        content: response.content
+                        content: data.content || data.message || "No response received"
                     };
                     setMessages((prev)=>[
                             ...prev,
                             assistantMessage
                         ]);
                 }
+                // Clear uploaded files after sending
+                setUploadedFiles([]);
             } catch (error) {
-                // Handle unexpected errors
+                console.error("Error sending message:", error);
                 const errorMessage = {
                     id: (Date.now() + 1).toString(),
                     role: "assistant",
-                    content: `Unexpected error: ${error instanceof Error ? error.message : "Unknown error"}`
+                    content: `Error: ${error instanceof Error ? error.message : "Unknown error"}. Please make sure the API is running at http://localhost:7777`
                 };
                 setMessages((prev)=>[
                         ...prev,
@@ -502,6 +619,8 @@ function ChatInterface() {
                     ]);
             } finally{
                 setIsLoading(false);
+                setCurrentAgentSteps([]);
+                setCurrentProgress("");
             }
         } else {
             // Project mode - use mock response (or implement project-specific logic later)
@@ -604,15 +723,15 @@ function ChatInterface() {
                                         className: "w-4 h-4"
                                     }, void 0, false, {
                                         fileName: "[project]/components/chat-interface.tsx",
-                                        lineNumber: 325,
-                                        columnNumber: 13
+                                        lineNumber: 546,
+                                        columnNumber: 25
                                     }, this),
                                     "New Chat"
                                 ]
                             }, void 0, true, {
                                 fileName: "[project]/components/chat-interface.tsx",
-                                lineNumber: 320,
-                                columnNumber: 11
+                                lineNumber: 541,
+                                columnNumber: 21
                             }, this),
                             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
                                 className: "flex gap-1 p-1 bg-sidebar-accent rounded-sm border border-sidebar-border",
@@ -623,8 +742,8 @@ function ChatInterface() {
                                         children: "Chats"
                                     }, void 0, false, {
                                         fileName: "[project]/components/chat-interface.tsx",
-                                        lineNumber: 330,
-                                        columnNumber: 13
+                                        lineNumber: 551,
+                                        columnNumber: 25
                                     }, this),
                                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("button", {
                                         onClick: ()=>setActiveTab("projects"),
@@ -632,20 +751,20 @@ function ChatInterface() {
                                         children: "Projects"
                                     }, void 0, false, {
                                         fileName: "[project]/components/chat-interface.tsx",
-                                        lineNumber: 339,
-                                        columnNumber: 13
+                                        lineNumber: 562,
+                                        columnNumber: 25
                                     }, this)
                                 ]
                             }, void 0, true, {
                                 fileName: "[project]/components/chat-interface.tsx",
-                                lineNumber: 329,
-                                columnNumber: 11
+                                lineNumber: 550,
+                                columnNumber: 21
                             }, this)
                         ]
                     }, void 0, true, {
                         fileName: "[project]/components/chat-interface.tsx",
-                        lineNumber: 319,
-                        columnNumber: 9
+                        lineNumber: 540,
+                        columnNumber: 17
                     }, this),
                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
                         className: "flex-1 overflow-y-auto p-4",
@@ -656,8 +775,8 @@ function ChatInterface() {
                                     children: selectedProject ? `${selectedProject.name} Chats` : "Recent Conversations"
                                 }, void 0, false, {
                                     fileName: "[project]/components/chat-interface.tsx",
-                                    lineNumber: 354,
-                                    columnNumber: 15
+                                    lineNumber: 579,
+                                    columnNumber: 29
                                 }, this),
                                 loadingSessions ? /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
                                     className: "text-center py-8",
@@ -666,13 +785,13 @@ function ChatInterface() {
                                         children: "Loading sessions..."
                                     }, void 0, false, {
                                         fileName: "[project]/components/chat-interface.tsx",
-                                        lineNumber: 359,
-                                        columnNumber: 19
+                                        lineNumber: 586,
+                                        columnNumber: 37
                                     }, this)
                                 }, void 0, false, {
                                     fileName: "[project]/components/chat-interface.tsx",
-                                    lineNumber: 358,
-                                    columnNumber: 17
+                                    lineNumber: 585,
+                                    columnNumber: 33
                                 }, this) : sessions.length === 0 ? /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
                                     className: "text-center py-8",
                                     children: [
@@ -680,30 +799,30 @@ function ChatInterface() {
                                             className: "w-8 h-8 text-muted-foreground mx-auto mb-2"
                                         }, void 0, false, {
                                             fileName: "[project]/components/chat-interface.tsx",
-                                            lineNumber: 363,
-                                            columnNumber: 19
+                                            lineNumber: 592,
+                                            columnNumber: 37
                                         }, this),
                                         /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("p", {
                                             className: "font-mono text-xs text-muted-foreground",
                                             children: "No conversations yet"
                                         }, void 0, false, {
                                             fileName: "[project]/components/chat-interface.tsx",
-                                            lineNumber: 364,
-                                            columnNumber: 19
+                                            lineNumber: 593,
+                                            columnNumber: 37
                                         }, this),
                                         /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("p", {
                                             className: "font-mono text-xs text-muted-foreground mt-1",
                                             children: "Start a new chat to begin"
                                         }, void 0, false, {
                                             fileName: "[project]/components/chat-interface.tsx",
-                                            lineNumber: 365,
-                                            columnNumber: 19
+                                            lineNumber: 596,
+                                            columnNumber: 37
                                         }, this)
                                     ]
                                 }, void 0, true, {
                                     fileName: "[project]/components/chat-interface.tsx",
-                                    lineNumber: 362,
-                                    columnNumber: 17
+                                    lineNumber: 591,
+                                    columnNumber: 33
                                 }, this) : /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
                                     className: "space-y-2",
                                     children: sessions.map((session)=>{
@@ -722,8 +841,8 @@ function ChatInterface() {
                                                         className: (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$utils$2e$ts__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["cn"])("w-4 h-4 mt-0.5 shrink-0", isActive ? "text-primary" : "text-muted-foreground")
                                                     }, void 0, false, {
                                                         fileName: "[project]/components/chat-interface.tsx",
-                                                        lineNumber: 395,
-                                                        columnNumber: 27
+                                                        lineNumber: 636,
+                                                        columnNumber: 53
                                                     }, this),
                                                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
                                                         className: "flex-1 min-w-0",
@@ -733,8 +852,8 @@ function ChatInterface() {
                                                                 children: session.session_name
                                                             }, void 0, false, {
                                                                 fileName: "[project]/components/chat-interface.tsx",
-                                                                lineNumber: 397,
-                                                                columnNumber: 29
+                                                                lineNumber: 645,
+                                                                columnNumber: 57
                                                             }, this),
                                                             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
                                                                 className: "flex items-center gap-1 mt-2",
@@ -743,45 +862,45 @@ function ChatInterface() {
                                                                         className: "w-3 h-3 text-muted-foreground"
                                                                     }, void 0, false, {
                                                                         fileName: "[project]/components/chat-interface.tsx",
-                                                                        lineNumber: 401,
-                                                                        columnNumber: 31
+                                                                        lineNumber: 651,
+                                                                        columnNumber: 61
                                                                     }, this),
                                                                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("span", {
                                                                         className: "font-mono text-xs text-muted-foreground",
                                                                         children: timeLabel
                                                                     }, void 0, false, {
                                                                         fileName: "[project]/components/chat-interface.tsx",
-                                                                        lineNumber: 402,
-                                                                        columnNumber: 31
+                                                                        lineNumber: 652,
+                                                                        columnNumber: 61
                                                                     }, this)
                                                                 ]
                                                             }, void 0, true, {
                                                                 fileName: "[project]/components/chat-interface.tsx",
-                                                                lineNumber: 400,
-                                                                columnNumber: 29
+                                                                lineNumber: 650,
+                                                                columnNumber: 57
                                                             }, this)
                                                         ]
                                                     }, void 0, true, {
                                                         fileName: "[project]/components/chat-interface.tsx",
-                                                        lineNumber: 396,
-                                                        columnNumber: 27
+                                                        lineNumber: 644,
+                                                        columnNumber: 53
                                                     }, this)
                                                 ]
                                             }, void 0, true, {
                                                 fileName: "[project]/components/chat-interface.tsx",
-                                                lineNumber: 394,
-                                                columnNumber: 25
+                                                lineNumber: 635,
+                                                columnNumber: 49
                                             }, this)
                                         }, session.session_id, false, {
                                             fileName: "[project]/components/chat-interface.tsx",
-                                            lineNumber: 384,
-                                            columnNumber: 23
+                                            lineNumber: 623,
+                                            columnNumber: 45
                                         }, this);
                                     })
                                 }, void 0, false, {
                                     fileName: "[project]/components/chat-interface.tsx",
-                                    lineNumber: 368,
-                                    columnNumber: 17
+                                    lineNumber: 601,
+                                    columnNumber: 33
                                 }, this)
                             ]
                         }, void 0, true) : /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["Fragment"], {
@@ -791,8 +910,8 @@ function ChatInterface() {
                                     children: "Your Projects"
                                 }, void 0, false, {
                                     fileName: "[project]/components/chat-interface.tsx",
-                                    lineNumber: 414,
-                                    columnNumber: 15
+                                    lineNumber: 666,
+                                    columnNumber: 29
                                 }, this),
                                 /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
                                     className: "space-y-2",
@@ -807,27 +926,27 @@ function ChatInterface() {
                                                         className: "w-4 h-4 text-primary"
                                                     }, void 0, false, {
                                                         fileName: "[project]/components/chat-interface.tsx",
-                                                        lineNumber: 421,
-                                                        columnNumber: 21
+                                                        lineNumber: 675,
+                                                        columnNumber: 41
                                                     }, this),
                                                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("span", {
                                                         className: "font-mono text-xs uppercase tracking-wider text-primary",
                                                         children: "New Project"
                                                     }, void 0, false, {
                                                         fileName: "[project]/components/chat-interface.tsx",
-                                                        lineNumber: 422,
-                                                        columnNumber: 21
+                                                        lineNumber: 676,
+                                                        columnNumber: 41
                                                     }, this)
                                                 ]
                                             }, void 0, true, {
                                                 fileName: "[project]/components/chat-interface.tsx",
-                                                lineNumber: 420,
-                                                columnNumber: 19
+                                                lineNumber: 674,
+                                                columnNumber: 37
                                             }, this)
                                         }, void 0, false, {
                                             fileName: "[project]/components/chat-interface.tsx",
-                                            lineNumber: 416,
-                                            columnNumber: 17
+                                            lineNumber: 670,
+                                            columnNumber: 33
                                         }, this),
                                         projects.map((project)=>/*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("button", {
                                                 onClick: ()=>{
@@ -842,8 +961,8 @@ function ChatInterface() {
                                                             className: "w-4 h-4 text-primary mt-0.5 shrink-0"
                                                         }, void 0, false, {
                                                             fileName: "[project]/components/chat-interface.tsx",
-                                                            lineNumber: 441,
-                                                            columnNumber: 23
+                                                            lineNumber: 697,
+                                                            columnNumber: 45
                                                         }, this),
                                                         /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
                                                             className: "flex-1 min-w-0",
@@ -853,16 +972,16 @@ function ChatInterface() {
                                                                     children: project.name
                                                                 }, void 0, false, {
                                                                     fileName: "[project]/components/chat-interface.tsx",
-                                                                    lineNumber: 443,
-                                                                    columnNumber: 25
+                                                                    lineNumber: 699,
+                                                                    columnNumber: 49
                                                                 }, this),
                                                                 /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("p", {
                                                                     className: "font-mono text-xs text-muted-foreground truncate mt-1",
                                                                     children: project.description
                                                                 }, void 0, false, {
                                                                     fileName: "[project]/components/chat-interface.tsx",
-                                                                    lineNumber: 446,
-                                                                    columnNumber: 25
+                                                                    lineNumber: 702,
+                                                                    columnNumber: 49
                                                                 }, this),
                                                                 /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
                                                                     className: "flex items-center gap-3 mt-2",
@@ -871,59 +990,61 @@ function ChatInterface() {
                                                                             className: "font-mono text-xs text-muted-foreground",
                                                                             children: [
                                                                                 project.chatCount,
-                                                                                " chats"
+                                                                                " ",
+                                                                                "chats"
                                                                             ]
                                                                         }, void 0, true, {
                                                                             fileName: "[project]/components/chat-interface.tsx",
-                                                                            lineNumber: 448,
-                                                                            columnNumber: 27
+                                                                            lineNumber: 706,
+                                                                            columnNumber: 53
                                                                         }, this),
                                                                         /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("span", {
                                                                             className: "font-mono text-xs text-muted-foreground",
                                                                             children: [
                                                                                 project.files.length,
-                                                                                " files"
+                                                                                " ",
+                                                                                "files"
                                                                             ]
                                                                         }, void 0, true, {
                                                                             fileName: "[project]/components/chat-interface.tsx",
-                                                                            lineNumber: 449,
-                                                                            columnNumber: 27
+                                                                            lineNumber: 710,
+                                                                            columnNumber: 53
                                                                         }, this)
                                                                     ]
                                                                 }, void 0, true, {
                                                                     fileName: "[project]/components/chat-interface.tsx",
-                                                                    lineNumber: 447,
-                                                                    columnNumber: 25
+                                                                    lineNumber: 705,
+                                                                    columnNumber: 49
                                                                 }, this)
                                                             ]
                                                         }, void 0, true, {
                                                             fileName: "[project]/components/chat-interface.tsx",
-                                                            lineNumber: 442,
-                                                            columnNumber: 23
+                                                            lineNumber: 698,
+                                                            columnNumber: 45
                                                         }, this)
                                                     ]
                                                 }, void 0, true, {
                                                     fileName: "[project]/components/chat-interface.tsx",
-                                                    lineNumber: 440,
-                                                    columnNumber: 21
+                                                    lineNumber: 696,
+                                                    columnNumber: 41
                                                 }, this)
                                             }, project.id, false, {
                                                 fileName: "[project]/components/chat-interface.tsx",
-                                                lineNumber: 427,
-                                                columnNumber: 19
+                                                lineNumber: 683,
+                                                columnNumber: 37
                                             }, this))
                                     ]
                                 }, void 0, true, {
                                     fileName: "[project]/components/chat-interface.tsx",
-                                    lineNumber: 415,
-                                    columnNumber: 15
+                                    lineNumber: 669,
+                                    columnNumber: 29
                                 }, this)
                             ]
                         }, void 0, true)
                     }, void 0, false, {
                         fileName: "[project]/components/chat-interface.tsx",
-                        lineNumber: 351,
-                        columnNumber: 9
+                        lineNumber: 576,
+                        columnNumber: 17
                     }, this),
                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
                         className: "p-4 border-t border-sidebar-border",
@@ -932,19 +1053,19 @@ function ChatInterface() {
                             children: activeTab === "chats" ? `${sessions.length} Conversations` : `${projects.length} Projects`
                         }, void 0, false, {
                             fileName: "[project]/components/chat-interface.tsx",
-                            lineNumber: 461,
-                            columnNumber: 11
+                            lineNumber: 725,
+                            columnNumber: 21
                         }, this)
                     }, void 0, false, {
                         fileName: "[project]/components/chat-interface.tsx",
-                        lineNumber: 460,
-                        columnNumber: 9
+                        lineNumber: 724,
+                        columnNumber: 17
                     }, this)
                 ]
             }, void 0, true, {
                 fileName: "[project]/components/chat-interface.tsx",
-                lineNumber: 313,
-                columnNumber: 7
+                lineNumber: 534,
+                columnNumber: 13
             }, this),
             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("button", {
                 onClick: ()=>setSidebarOpen(!sidebarOpen),
@@ -957,28 +1078,28 @@ function ChatInterface() {
                         className: "w-4 h-4 text-muted-foreground"
                     }, void 0, false, {
                         fileName: "[project]/components/chat-interface.tsx",
-                        lineNumber: 473,
-                        columnNumber: 11
+                        lineNumber: 739,
+                        columnNumber: 21
                     }, this) : /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$lucide$2d$react$2f$dist$2f$esm$2f$icons$2f$chevron$2d$right$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__$3c$export__default__as__ChevronRight$3e$__["ChevronRight"], {
                         className: "w-4 h-4 text-muted-foreground"
                     }, void 0, false, {
                         fileName: "[project]/components/chat-interface.tsx",
-                        lineNumber: 475,
-                        columnNumber: 11
+                        lineNumber: 741,
+                        columnNumber: 21
                     }, this),
                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("span", {
                         className: "sr-only",
                         children: "Toggle sidebar"
                     }, void 0, false, {
                         fileName: "[project]/components/chat-interface.tsx",
-                        lineNumber: 477,
-                        columnNumber: 9
+                        lineNumber: 743,
+                        columnNumber: 17
                     }, this)
                 ]
             }, void 0, true, {
                 fileName: "[project]/components/chat-interface.tsx",
-                lineNumber: 467,
-                columnNumber: 7
+                lineNumber: 733,
+                columnNumber: 13
             }, this),
             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
                 className: "flex flex-col flex-1 min-w-0",
@@ -998,13 +1119,13 @@ function ChatInterface() {
                                                 className: "w-4 h-4 text-muted-foreground"
                                             }, void 0, false, {
                                                 fileName: "[project]/components/chat-interface.tsx",
-                                                lineNumber: 490,
-                                                columnNumber: 19
+                                                lineNumber: 756,
+                                                columnNumber: 37
                                             }, this)
                                         }, void 0, false, {
                                             fileName: "[project]/components/chat-interface.tsx",
-                                            lineNumber: 485,
-                                            columnNumber: 17
+                                            lineNumber: 751,
+                                            columnNumber: 33
                                         }, this),
                                         /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
                                             children: [
@@ -1013,22 +1134,22 @@ function ChatInterface() {
                                                     children: selectedProject.name
                                                 }, void 0, false, {
                                                     fileName: "[project]/components/chat-interface.tsx",
-                                                    lineNumber: 493,
-                                                    columnNumber: 19
+                                                    lineNumber: 759,
+                                                    columnNumber: 37
                                                 }, this),
                                                 /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("p", {
                                                     className: "font-mono text-xs text-muted-foreground uppercase tracking-widest",
                                                     children: selectedProject.description
                                                 }, void 0, false, {
                                                     fileName: "[project]/components/chat-interface.tsx",
-                                                    lineNumber: 494,
-                                                    columnNumber: 19
+                                                    lineNumber: 762,
+                                                    columnNumber: 37
                                                 }, this)
                                             ]
                                         }, void 0, true, {
                                             fileName: "[project]/components/chat-interface.tsx",
-                                            lineNumber: 492,
-                                            columnNumber: 17
+                                            lineNumber: 758,
+                                            columnNumber: 33
                                         }, this)
                                     ]
                                 }, void 0, true) : /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["Fragment"], {
@@ -1039,28 +1160,28 @@ function ChatInterface() {
                                                 className: "w-4 h-4 text-primary-foreground"
                                             }, void 0, false, {
                                                 fileName: "[project]/components/chat-interface.tsx",
-                                                lineNumber: 502,
-                                                columnNumber: 19
+                                                lineNumber: 770,
+                                                columnNumber: 37
                                             }, this)
                                         }, void 0, false, {
                                             fileName: "[project]/components/chat-interface.tsx",
-                                            lineNumber: 501,
-                                            columnNumber: 17
+                                            lineNumber: 769,
+                                            columnNumber: 33
                                         }, this),
                                         /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("h1", {
                                             className: "font-serif text-2xl font-bold text-primary tracking-tight",
                                             children: "AI Assistant"
                                         }, void 0, false, {
                                             fileName: "[project]/components/chat-interface.tsx",
-                                            lineNumber: 504,
-                                            columnNumber: 17
+                                            lineNumber: 772,
+                                            columnNumber: 33
                                         }, this)
                                     ]
                                 }, void 0, true)
                             }, void 0, false, {
                                 fileName: "[project]/components/chat-interface.tsx",
-                                lineNumber: 482,
-                                columnNumber: 11
+                                lineNumber: 748,
+                                columnNumber: 21
                             }, this),
                             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
                                 className: "flex items-center gap-3",
@@ -1073,39 +1194,39 @@ function ChatInterface() {
                                             className: "w-4 h-4 text-muted-foreground"
                                         }, void 0, false, {
                                             fileName: "[project]/components/chat-interface.tsx",
-                                            lineNumber: 515,
-                                            columnNumber: 17
+                                            lineNumber: 785,
+                                            columnNumber: 33
                                         }, this) : /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$lucide$2d$react$2f$dist$2f$esm$2f$icons$2f$moon$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__$3c$export__default__as__Moon$3e$__["Moon"], {
                                             className: "w-4 h-4 text-muted-foreground"
                                         }, void 0, false, {
                                             fileName: "[project]/components/chat-interface.tsx",
-                                            lineNumber: 517,
-                                            columnNumber: 17
+                                            lineNumber: 787,
+                                            columnNumber: 33
                                         }, this)
                                     }, void 0, false, {
                                         fileName: "[project]/components/chat-interface.tsx",
-                                        lineNumber: 509,
-                                        columnNumber: 13
+                                        lineNumber: 779,
+                                        columnNumber: 25
                                     }, this),
                                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("span", {
                                         className: "font-mono text-xs text-muted-foreground uppercase tracking-widest",
                                         children: "v1.0"
                                     }, void 0, false, {
                                         fileName: "[project]/components/chat-interface.tsx",
-                                        lineNumber: 520,
-                                        columnNumber: 13
+                                        lineNumber: 790,
+                                        columnNumber: 25
                                     }, this)
                                 ]
                             }, void 0, true, {
                                 fileName: "[project]/components/chat-interface.tsx",
-                                lineNumber: 508,
-                                columnNumber: 11
+                                lineNumber: 778,
+                                columnNumber: 21
                             }, this)
                         ]
                     }, void 0, true, {
                         fileName: "[project]/components/chat-interface.tsx",
-                        lineNumber: 481,
-                        columnNumber: 9
+                        lineNumber: 747,
+                        columnNumber: 17
                     }, this),
                     selectedProject && /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
                         className: "border-b border-border bg-card p-4",
@@ -1120,8 +1241,8 @@ function ChatInterface() {
                                             children: "Project Files"
                                         }, void 0, false, {
                                             fileName: "[project]/components/chat-interface.tsx",
-                                            lineNumber: 528,
-                                            columnNumber: 17
+                                            lineNumber: 800,
+                                            columnNumber: 33
                                         }, this),
                                         /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("label", {
                                             className: "cursor-pointer",
@@ -1133,8 +1254,8 @@ function ChatInterface() {
                                                     onChange: handleProjectFileUpload
                                                 }, void 0, false, {
                                                     fileName: "[project]/components/chat-interface.tsx",
-                                                    lineNumber: 530,
-                                                    columnNumber: 19
+                                                    lineNumber: 804,
+                                                    columnNumber: 37
                                                 }, this),
                                                 /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
                                                     className: "flex items-center gap-2 px-3 py-1.5 rounded-sm border border-border hover:bg-secondary transition-colors",
@@ -1143,34 +1264,34 @@ function ChatInterface() {
                                                             className: "w-3 h-3 text-primary"
                                                         }, void 0, false, {
                                                             fileName: "[project]/components/chat-interface.tsx",
-                                                            lineNumber: 532,
-                                                            columnNumber: 21
+                                                            lineNumber: 811,
+                                                            columnNumber: 41
                                                         }, this),
                                                         /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("span", {
                                                             className: "font-mono text-xs uppercase tracking-wider text-primary",
                                                             children: "Upload"
                                                         }, void 0, false, {
                                                             fileName: "[project]/components/chat-interface.tsx",
-                                                            lineNumber: 533,
-                                                            columnNumber: 21
+                                                            lineNumber: 812,
+                                                            columnNumber: 41
                                                         }, this)
                                                     ]
                                                 }, void 0, true, {
                                                     fileName: "[project]/components/chat-interface.tsx",
-                                                    lineNumber: 531,
-                                                    columnNumber: 19
+                                                    lineNumber: 810,
+                                                    columnNumber: 37
                                                 }, this)
                                             ]
                                         }, void 0, true, {
                                             fileName: "[project]/components/chat-interface.tsx",
-                                            lineNumber: 529,
-                                            columnNumber: 17
+                                            lineNumber: 803,
+                                            columnNumber: 33
                                         }, this)
                                     ]
                                 }, void 0, true, {
                                     fileName: "[project]/components/chat-interface.tsx",
-                                    lineNumber: 527,
-                                    columnNumber: 15
+                                    lineNumber: 799,
+                                    columnNumber: 29
                                 }, this),
                                 selectedProject.files.length > 0 ? /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
                                     className: "grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2",
@@ -1184,8 +1305,8 @@ function ChatInterface() {
                                                             className: "w-4 h-4 text-primary shrink-0 mt-0.5"
                                                         }, void 0, false, {
                                                             fileName: "[project]/components/chat-interface.tsx",
-                                                            lineNumber: 546,
-                                                            columnNumber: 25
+                                                            lineNumber: 827,
+                                                            columnNumber: 49
                                                         }, this),
                                                         /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("button", {
                                                             onClick: ()=>handleRemoveFile(file.id),
@@ -1195,19 +1316,19 @@ function ChatInterface() {
                                                                 className: "w-3 h-3 text-destructive"
                                                             }, void 0, false, {
                                                                 fileName: "[project]/components/chat-interface.tsx",
-                                                                lineNumber: 552,
-                                                                columnNumber: 27
+                                                                lineNumber: 837,
+                                                                columnNumber: 53
                                                             }, this)
                                                         }, void 0, false, {
                                                             fileName: "[project]/components/chat-interface.tsx",
-                                                            lineNumber: 547,
-                                                            columnNumber: 25
+                                                            lineNumber: 828,
+                                                            columnNumber: 49
                                                         }, this)
                                                     ]
                                                 }, void 0, true, {
                                                     fileName: "[project]/components/chat-interface.tsx",
-                                                    lineNumber: 545,
-                                                    columnNumber: 23
+                                                    lineNumber: 826,
+                                                    columnNumber: 45
                                                 }, this),
                                                 /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("p", {
                                                     className: "font-mono text-xs text-foreground truncate mt-2",
@@ -1215,27 +1336,27 @@ function ChatInterface() {
                                                     children: file.name
                                                 }, void 0, false, {
                                                     fileName: "[project]/components/chat-interface.tsx",
-                                                    lineNumber: 555,
-                                                    columnNumber: 23
+                                                    lineNumber: 840,
+                                                    columnNumber: 45
                                                 }, this),
                                                 /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("p", {
                                                     className: "font-mono text-xs text-muted-foreground mt-1",
                                                     children: formatFileSize(file.size)
                                                 }, void 0, false, {
                                                     fileName: "[project]/components/chat-interface.tsx",
-                                                    lineNumber: 558,
-                                                    columnNumber: 23
+                                                    lineNumber: 846,
+                                                    columnNumber: 45
                                                 }, this)
                                             ]
                                         }, file.id, true, {
                                             fileName: "[project]/components/chat-interface.tsx",
-                                            lineNumber: 541,
-                                            columnNumber: 21
+                                            lineNumber: 822,
+                                            columnNumber: 41
                                         }, this))
                                 }, void 0, false, {
                                     fileName: "[project]/components/chat-interface.tsx",
-                                    lineNumber: 539,
-                                    columnNumber: 17
+                                    lineNumber: 820,
+                                    columnNumber: 33
                                 }, this) : /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
                                     className: "text-center py-8 border border-dashed border-border rounded-sm",
                                     children: [
@@ -1243,33 +1364,33 @@ function ChatInterface() {
                                             className: "w-8 h-8 text-muted-foreground mx-auto mb-2"
                                         }, void 0, false, {
                                             fileName: "[project]/components/chat-interface.tsx",
-                                            lineNumber: 564,
-                                            columnNumber: 19
+                                            lineNumber: 854,
+                                            columnNumber: 37
                                         }, this),
                                         /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("p", {
                                             className: "font-mono text-xs text-muted-foreground uppercase tracking-wider",
                                             children: "No files uploaded yet"
                                         }, void 0, false, {
                                             fileName: "[project]/components/chat-interface.tsx",
-                                            lineNumber: 565,
-                                            columnNumber: 19
+                                            lineNumber: 855,
+                                            columnNumber: 37
                                         }, this)
                                     ]
                                 }, void 0, true, {
                                     fileName: "[project]/components/chat-interface.tsx",
-                                    lineNumber: 563,
-                                    columnNumber: 17
+                                    lineNumber: 853,
+                                    columnNumber: 33
                                 }, this)
                             ]
                         }, void 0, true, {
                             fileName: "[project]/components/chat-interface.tsx",
-                            lineNumber: 526,
-                            columnNumber: 13
+                            lineNumber: 798,
+                            columnNumber: 25
                         }, this)
                     }, void 0, false, {
                         fileName: "[project]/components/chat-interface.tsx",
-                        lineNumber: 525,
-                        columnNumber: 11
+                        lineNumber: 797,
+                        columnNumber: 21
                     }, this),
                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
                         className: "flex-1 overflow-y-auto px-6 py-8",
@@ -1282,29 +1403,29 @@ function ChatInterface() {
                                         className: "w-8 h-8 text-primary"
                                     }, void 0, false, {
                                         fileName: "[project]/components/chat-interface.tsx",
-                                        lineNumber: 578,
-                                        columnNumber: 17
+                                        lineNumber: 868,
+                                        columnNumber: 33
                                     }, this)
                                 }, void 0, false, {
                                     fileName: "[project]/components/chat-interface.tsx",
-                                    lineNumber: 577,
-                                    columnNumber: 15
+                                    lineNumber: 867,
+                                    columnNumber: 29
                                 }, this),
                                 /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("h2", {
                                     className: "font-serif text-4xl font-bold text-primary mb-4 tracking-tight",
                                     children: "The AI Assistant"
                                 }, void 0, false, {
                                     fileName: "[project]/components/chat-interface.tsx",
-                                    lineNumber: 580,
-                                    columnNumber: 15
+                                    lineNumber: 870,
+                                    columnNumber: 29
                                 }, this),
                                 /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("p", {
                                     className: "font-mono text-sm text-muted-foreground uppercase tracking-widest max-w-md leading-relaxed",
                                     children: "Your intelligent conversation partner. Ask me anything to get started."
                                 }, void 0, false, {
                                     fileName: "[project]/components/chat-interface.tsx",
-                                    lineNumber: 581,
-                                    columnNumber: 15
+                                    lineNumber: 873,
+                                    columnNumber: 29
                                 }, this),
                                 /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
                                     className: "mt-8 flex flex-wrap gap-3 justify-center",
@@ -1321,25 +1442,25 @@ function ChatInterface() {
                                                     className: "w-3 h-3 opacity-0 group-hover:opacity-100 transition-opacity text-primary"
                                                 }, void 0, false, {
                                                     fileName: "[project]/components/chat-interface.tsx",
-                                                    lineNumber: 592,
-                                                    columnNumber: 21
+                                                    lineNumber: 889,
+                                                    columnNumber: 41
                                                 }, this)
                                             ]
                                         }, suggestion, true, {
                                             fileName: "[project]/components/chat-interface.tsx",
-                                            lineNumber: 586,
-                                            columnNumber: 19
+                                            lineNumber: 883,
+                                            columnNumber: 37
                                         }, this))
                                 }, void 0, false, {
                                     fileName: "[project]/components/chat-interface.tsx",
-                                    lineNumber: 584,
-                                    columnNumber: 15
+                                    lineNumber: 877,
+                                    columnNumber: 29
                                 }, this)
                             ]
                         }, void 0, true, {
                             fileName: "[project]/components/chat-interface.tsx",
-                            lineNumber: 576,
-                            columnNumber: 13
+                            lineNumber: 866,
+                            columnNumber: 25
                         }, this) : /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
                             className: "space-y-6",
                             children: [
@@ -1352,13 +1473,13 @@ function ChatInterface() {
                                                     className: "w-4 h-4 text-primary-foreground"
                                                 }, void 0, false, {
                                                     fileName: "[project]/components/chat-interface.tsx",
-                                                    lineNumber: 606,
-                                                    columnNumber: 23
+                                                    lineNumber: 908,
+                                                    columnNumber: 45
                                                 }, this)
                                             }, void 0, false, {
                                                 fileName: "[project]/components/chat-interface.tsx",
-                                                lineNumber: 605,
-                                                columnNumber: 21
+                                                lineNumber: 907,
+                                                columnNumber: 41
                                             }, this),
                                             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
                                                 className: (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$utils$2e$ts__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["cn"])("max-w-[70%] px-4 py-3 rounded-sm", message.role === "user" ? "bg-primary text-primary-foreground" : "bg-card border border-border"),
@@ -1371,25 +1492,25 @@ function ChatInterface() {
                                                         children: message.content
                                                     }, void 0, false, {
                                                         fileName: "[project]/components/chat-interface.tsx",
-                                                        lineNumber: 617,
-                                                        columnNumber: 25
+                                                        lineNumber: 921,
+                                                        columnNumber: 49
                                                     }, this)
                                                 }, void 0, false, {
                                                     fileName: "[project]/components/chat-interface.tsx",
-                                                    lineNumber: 616,
-                                                    columnNumber: 23
+                                                    lineNumber: 920,
+                                                    columnNumber: 45
                                                 }, this) : /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("p", {
                                                     className: "text-sm leading-relaxed font-sans",
                                                     children: message.content
                                                 }, void 0, false, {
                                                     fileName: "[project]/components/chat-interface.tsx",
-                                                    lineNumber: 620,
-                                                    columnNumber: 23
+                                                    lineNumber: 928,
+                                                    columnNumber: 45
                                                 }, this)
                                             }, void 0, false, {
                                                 fileName: "[project]/components/chat-interface.tsx",
-                                                lineNumber: 609,
-                                                columnNumber: 19
+                                                lineNumber: 911,
+                                                columnNumber: 37
                                             }, this),
                                             message.role === "user" && /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
                                                 className: "w-8 h-8 rounded-sm bg-muted flex items-center justify-center shrink-0",
@@ -1397,19 +1518,19 @@ function ChatInterface() {
                                                     className: "w-4 h-4 rounded-full bg-primary"
                                                 }, void 0, false, {
                                                     fileName: "[project]/components/chat-interface.tsx",
-                                                    lineNumber: 625,
-                                                    columnNumber: 23
+                                                    lineNumber: 935,
+                                                    columnNumber: 45
                                                 }, this)
                                             }, void 0, false, {
                                                 fileName: "[project]/components/chat-interface.tsx",
-                                                lineNumber: 624,
-                                                columnNumber: 21
+                                                lineNumber: 934,
+                                                columnNumber: 41
                                             }, this)
                                         ]
                                     }, message.id, true, {
                                         fileName: "[project]/components/chat-interface.tsx",
-                                        lineNumber: 600,
-                                        columnNumber: 17
+                                        lineNumber: 897,
+                                        columnNumber: 33
                                     }, this)),
                                 isLoading && /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
                                     className: "flex gap-4",
@@ -1420,13 +1541,13 @@ function ChatInterface() {
                                                 className: "w-4 h-4 text-primary-foreground"
                                             }, void 0, false, {
                                                 fileName: "[project]/components/chat-interface.tsx",
-                                                lineNumber: 633,
-                                                columnNumber: 21
+                                                lineNumber: 943,
+                                                columnNumber: 41
                                             }, this)
                                         }, void 0, false, {
                                             fileName: "[project]/components/chat-interface.tsx",
-                                            lineNumber: 632,
-                                            columnNumber: 19
+                                            lineNumber: 942,
+                                            columnNumber: 37
                                         }, this),
                                         /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
                                             className: "max-w-[70%] px-4 py-3 rounded-sm bg-card border border-border",
@@ -1440,8 +1561,8 @@ function ChatInterface() {
                                                         }
                                                     }, void 0, false, {
                                                         fileName: "[project]/components/chat-interface.tsx",
-                                                        lineNumber: 637,
-                                                        columnNumber: 23
+                                                        lineNumber: 947,
+                                                        columnNumber: 45
                                                     }, this),
                                                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
                                                         className: "w-2 h-2 rounded-full bg-primary animate-bounce",
@@ -1450,8 +1571,8 @@ function ChatInterface() {
                                                         }
                                                     }, void 0, false, {
                                                         fileName: "[project]/components/chat-interface.tsx",
-                                                        lineNumber: 641,
-                                                        columnNumber: 23
+                                                        lineNumber: 951,
+                                                        columnNumber: 45
                                                     }, this),
                                                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
                                                         className: "w-2 h-2 rounded-full bg-primary animate-bounce",
@@ -1460,43 +1581,43 @@ function ChatInterface() {
                                                         }
                                                     }, void 0, false, {
                                                         fileName: "[project]/components/chat-interface.tsx",
-                                                        lineNumber: 645,
-                                                        columnNumber: 23
+                                                        lineNumber: 957,
+                                                        columnNumber: 45
                                                     }, this)
                                                 ]
                                             }, void 0, true, {
                                                 fileName: "[project]/components/chat-interface.tsx",
-                                                lineNumber: 636,
-                                                columnNumber: 21
+                                                lineNumber: 946,
+                                                columnNumber: 41
                                             }, this)
                                         }, void 0, false, {
                                             fileName: "[project]/components/chat-interface.tsx",
-                                            lineNumber: 635,
-                                            columnNumber: 19
+                                            lineNumber: 945,
+                                            columnNumber: 37
                                         }, this)
                                     ]
                                 }, void 0, true, {
                                     fileName: "[project]/components/chat-interface.tsx",
-                                    lineNumber: 631,
-                                    columnNumber: 17
+                                    lineNumber: 941,
+                                    columnNumber: 33
                                 }, this),
                                 /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
                                     ref: messagesEndRef
                                 }, void 0, false, {
                                     fileName: "[project]/components/chat-interface.tsx",
-                                    lineNumber: 653,
-                                    columnNumber: 15
+                                    lineNumber: 967,
+                                    columnNumber: 29
                                 }, this)
                             ]
                         }, void 0, true, {
                             fileName: "[project]/components/chat-interface.tsx",
-                            lineNumber: 598,
-                            columnNumber: 13
+                            lineNumber: 895,
+                            columnNumber: 25
                         }, this)
                     }, void 0, false, {
                         fileName: "[project]/components/chat-interface.tsx",
-                        lineNumber: 574,
-                        columnNumber: 9
+                        lineNumber: 864,
+                        columnNumber: 17
                     }, this),
                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
                         className: "border-t border-border p-4",
@@ -1519,8 +1640,8 @@ function ChatInterface() {
                                                     ]
                                                 }, void 0, true, {
                                                     fileName: "[project]/components/chat-interface.tsx",
-                                                    lineNumber: 664,
-                                                    columnNumber: 19
+                                                    lineNumber: 978,
+                                                    columnNumber: 37
                                                 }, this),
                                                 /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("button", {
                                                     type: "button",
@@ -1529,14 +1650,14 @@ function ChatInterface() {
                                                     children: "Clear all"
                                                 }, void 0, false, {
                                                     fileName: "[project]/components/chat-interface.tsx",
-                                                    lineNumber: 667,
-                                                    columnNumber: 19
+                                                    lineNumber: 981,
+                                                    columnNumber: 37
                                                 }, this)
                                             ]
                                         }, void 0, true, {
                                             fileName: "[project]/components/chat-interface.tsx",
-                                            lineNumber: 663,
-                                            columnNumber: 17
+                                            lineNumber: 977,
+                                            columnNumber: 33
                                         }, this),
                                         /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
                                             className: "space-y-2",
@@ -1550,34 +1671,35 @@ function ChatInterface() {
                                                                     className: "w-4 h-4 text-primary shrink-0"
                                                                 }, void 0, false, {
                                                                     fileName: "[project]/components/chat-interface.tsx",
-                                                                    lineNumber: 682,
-                                                                    columnNumber: 25
+                                                                    lineNumber: 996,
+                                                                    columnNumber: 49
                                                                 }, this),
                                                                 /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("span", {
                                                                     className: "font-mono text-xs text-foreground truncate",
                                                                     children: file.name
                                                                 }, void 0, false, {
                                                                     fileName: "[project]/components/chat-interface.tsx",
-                                                                    lineNumber: 683,
-                                                                    columnNumber: 25
+                                                                    lineNumber: 997,
+                                                                    columnNumber: 49
                                                                 }, this),
                                                                 /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("span", {
                                                                     className: "font-mono text-xs text-muted-foreground",
                                                                     children: [
                                                                         "(",
                                                                         (file.size / 1024).toFixed(1),
-                                                                        " KB)"
+                                                                        " ",
+                                                                        "KB)"
                                                                     ]
                                                                 }, void 0, true, {
                                                                     fileName: "[project]/components/chat-interface.tsx",
-                                                                    lineNumber: 684,
-                                                                    columnNumber: 25
+                                                                    lineNumber: 1000,
+                                                                    columnNumber: 49
                                                                 }, this)
                                                             ]
                                                         }, void 0, true, {
                                                             fileName: "[project]/components/chat-interface.tsx",
-                                                            lineNumber: 681,
-                                                            columnNumber: 23
+                                                            lineNumber: 995,
+                                                            columnNumber: 45
                                                         }, this),
                                                         /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("button", {
                                                             type: "button",
@@ -1588,30 +1710,30 @@ function ChatInterface() {
                                                                 className: "w-3 h-3 text-destructive"
                                                             }, void 0, false, {
                                                                 fileName: "[project]/components/chat-interface.tsx",
-                                                                lineNumber: 694,
-                                                                columnNumber: 25
+                                                                lineNumber: 1020,
+                                                                columnNumber: 49
                                                             }, this)
                                                         }, void 0, false, {
                                                             fileName: "[project]/components/chat-interface.tsx",
-                                                            lineNumber: 688,
-                                                            columnNumber: 23
+                                                            lineNumber: 1008,
+                                                            columnNumber: 45
                                                         }, this)
                                                     ]
                                                 }, idx, true, {
                                                     fileName: "[project]/components/chat-interface.tsx",
-                                                    lineNumber: 677,
-                                                    columnNumber: 21
+                                                    lineNumber: 991,
+                                                    columnNumber: 41
                                                 }, this))
                                         }, void 0, false, {
                                             fileName: "[project]/components/chat-interface.tsx",
-                                            lineNumber: 675,
-                                            columnNumber: 17
+                                            lineNumber: 989,
+                                            columnNumber: 33
                                         }, this)
                                     ]
                                 }, void 0, true, {
                                     fileName: "[project]/components/chat-interface.tsx",
-                                    lineNumber: 662,
-                                    columnNumber: 15
+                                    lineNumber: 976,
+                                    columnNumber: 29
                                 }, this),
                                 /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
                                     className: "relative bg-card border border-border rounded-sm overflow-hidden focus-within:border-primary transition-colors",
@@ -1630,8 +1752,8 @@ function ChatInterface() {
                                             }
                                         }, void 0, false, {
                                             fileName: "[project]/components/chat-interface.tsx",
-                                            lineNumber: 703,
-                                            columnNumber: 15
+                                            lineNumber: 1029,
+                                            columnNumber: 29
                                         }, this),
                                         /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
                                             className: "absolute right-2 bottom-2 flex items-center gap-2",
@@ -1657,8 +1779,8 @@ function ChatInterface() {
                                                     }
                                                 }, void 0, false, {
                                                     fileName: "[project]/components/chat-interface.tsx",
-                                                    lineNumber: 721,
-                                                    columnNumber: 17
+                                                    lineNumber: 1047,
+                                                    columnNumber: 33
                                                 }, this),
                                                 /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("button", {
                                                     type: "button",
@@ -1671,22 +1793,22 @@ function ChatInterface() {
                                                             className: (0, __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$utils$2e$ts__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["cn"])("w-4 h-4", uploadedFiles.length > 0 ? "text-primary" : "text-muted-foreground")
                                                         }, void 0, false, {
                                                             fileName: "[project]/components/chat-interface.tsx",
-                                                            lineNumber: 748,
-                                                            columnNumber: 19
+                                                            lineNumber: 1098,
+                                                            columnNumber: 37
                                                         }, this),
                                                         uploadedFiles.length > 0 && /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("span", {
                                                             className: "absolute -top-1 -right-1 w-4 h-4 bg-primary text-primary-foreground text-xs font-mono rounded-full flex items-center justify-center",
                                                             children: uploadedFiles.length
                                                         }, void 0, false, {
                                                             fileName: "[project]/components/chat-interface.tsx",
-                                                            lineNumber: 750,
-                                                            columnNumber: 21
+                                                            lineNumber: 1107,
+                                                            columnNumber: 41
                                                         }, this)
                                                     ]
                                                 }, void 0, true, {
                                                     fileName: "[project]/components/chat-interface.tsx",
-                                                    lineNumber: 738,
-                                                    columnNumber: 17
+                                                    lineNumber: 1083,
+                                                    columnNumber: 33
                                                 }, this),
                                                 /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$components$2f$ui$2f$button$2e$tsx__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["Button"], {
                                                     type: "submit",
@@ -1697,50 +1819,50 @@ function ChatInterface() {
                                                         className: "w-4 h-4"
                                                     }, void 0, false, {
                                                         fileName: "[project]/components/chat-interface.tsx",
-                                                        lineNumber: 761,
-                                                        columnNumber: 19
+                                                        lineNumber: 1118,
+                                                        columnNumber: 37
                                                     }, this)
                                                 }, void 0, false, {
                                                     fileName: "[project]/components/chat-interface.tsx",
-                                                    lineNumber: 755,
-                                                    columnNumber: 17
+                                                    lineNumber: 1112,
+                                                    columnNumber: 33
                                                 }, this)
                                             ]
                                         }, void 0, true, {
                                             fileName: "[project]/components/chat-interface.tsx",
-                                            lineNumber: 720,
-                                            columnNumber: 15
+                                            lineNumber: 1046,
+                                            columnNumber: 29
                                         }, this)
                                     ]
                                 }, void 0, true, {
                                     fileName: "[project]/components/chat-interface.tsx",
-                                    lineNumber: 702,
-                                    columnNumber: 13
+                                    lineNumber: 1028,
+                                    columnNumber: 25
                                 }, this),
                                 /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("p", {
                                     className: "font-mono text-xs text-muted-foreground text-center mt-3 uppercase tracking-widest",
                                     children: "Press Enter to send • Shift + Enter for new line"
                                 }, void 0, false, {
                                     fileName: "[project]/components/chat-interface.tsx",
-                                    lineNumber: 765,
-                                    columnNumber: 13
+                                    lineNumber: 1122,
+                                    columnNumber: 25
                                 }, this)
                             ]
                         }, void 0, true, {
                             fileName: "[project]/components/chat-interface.tsx",
-                            lineNumber: 659,
-                            columnNumber: 11
+                            lineNumber: 973,
+                            columnNumber: 21
                         }, this)
                     }, void 0, false, {
                         fileName: "[project]/components/chat-interface.tsx",
-                        lineNumber: 658,
-                        columnNumber: 9
+                        lineNumber: 972,
+                        columnNumber: 17
                     }, this)
                 ]
             }, void 0, true, {
                 fileName: "[project]/components/chat-interface.tsx",
-                lineNumber: 480,
-                columnNumber: 7
+                lineNumber: 746,
+                columnNumber: 13
             }, this),
             showNewProjectModal && /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
                 className: "fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4",
@@ -1755,8 +1877,8 @@ function ChatInterface() {
                                     children: "Create New Project"
                                 }, void 0, false, {
                                     fileName: "[project]/components/chat-interface.tsx",
-                                    lineNumber: 776,
-                                    columnNumber: 15
+                                    lineNumber: 1133,
+                                    columnNumber: 29
                                 }, this),
                                 /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("button", {
                                     onClick: ()=>{
@@ -1770,19 +1892,19 @@ function ChatInterface() {
                                         className: "w-4 h-4 text-muted-foreground"
                                     }, void 0, false, {
                                         fileName: "[project]/components/chat-interface.tsx",
-                                        lineNumber: 786,
-                                        columnNumber: 17
+                                        lineNumber: 1145,
+                                        columnNumber: 33
                                     }, this)
                                 }, void 0, false, {
                                     fileName: "[project]/components/chat-interface.tsx",
-                                    lineNumber: 777,
-                                    columnNumber: 15
+                                    lineNumber: 1136,
+                                    columnNumber: 29
                                 }, this)
                             ]
                         }, void 0, true, {
                             fileName: "[project]/components/chat-interface.tsx",
-                            lineNumber: 775,
-                            columnNumber: 13
+                            lineNumber: 1132,
+                            columnNumber: 25
                         }, this),
                         /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
                             className: "space-y-4",
@@ -1795,8 +1917,8 @@ function ChatInterface() {
                                             children: "Project Name"
                                         }, void 0, false, {
                                             fileName: "[project]/components/chat-interface.tsx",
-                                            lineNumber: 792,
-                                            columnNumber: 17
+                                            lineNumber: 1151,
+                                            columnNumber: 33
                                         }, this),
                                         /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("input", {
                                             id: "project-name",
@@ -1808,14 +1930,14 @@ function ChatInterface() {
                                             autoFocus: true
                                         }, void 0, false, {
                                             fileName: "[project]/components/chat-interface.tsx",
-                                            lineNumber: 798,
-                                            columnNumber: 17
+                                            lineNumber: 1157,
+                                            columnNumber: 33
                                         }, this)
                                     ]
                                 }, void 0, true, {
                                     fileName: "[project]/components/chat-interface.tsx",
-                                    lineNumber: 791,
-                                    columnNumber: 15
+                                    lineNumber: 1150,
+                                    columnNumber: 29
                                 }, this),
                                 /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
                                     children: [
@@ -1825,8 +1947,8 @@ function ChatInterface() {
                                             children: "Description"
                                         }, void 0, false, {
                                             fileName: "[project]/components/chat-interface.tsx",
-                                            lineNumber: 810,
-                                            columnNumber: 17
+                                            lineNumber: 1171,
+                                            columnNumber: 33
                                         }, this),
                                         /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("textarea", {
                                             id: "project-description",
@@ -1837,14 +1959,14 @@ function ChatInterface() {
                                             rows: 3
                                         }, void 0, false, {
                                             fileName: "[project]/components/chat-interface.tsx",
-                                            lineNumber: 816,
-                                            columnNumber: 17
+                                            lineNumber: 1177,
+                                            columnNumber: 33
                                         }, this)
                                     ]
                                 }, void 0, true, {
                                     fileName: "[project]/components/chat-interface.tsx",
-                                    lineNumber: 809,
-                                    columnNumber: 15
+                                    lineNumber: 1170,
+                                    columnNumber: 29
                                 }, this),
                                 /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
                                     className: "flex gap-3 pt-2",
@@ -1860,8 +1982,8 @@ function ChatInterface() {
                                             children: "Cancel"
                                         }, void 0, false, {
                                             fileName: "[project]/components/chat-interface.tsx",
-                                            lineNumber: 827,
-                                            columnNumber: 17
+                                            lineNumber: 1190,
+                                            columnNumber: 33
                                         }, this),
                                         /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$components$2f$ui$2f$button$2e$tsx__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["Button"], {
                                             onClick: handleCreateProject,
@@ -1870,37 +1992,37 @@ function ChatInterface() {
                                             children: "Create Project"
                                         }, void 0, false, {
                                             fileName: "[project]/components/chat-interface.tsx",
-                                            lineNumber: 838,
-                                            columnNumber: 17
+                                            lineNumber: 1201,
+                                            columnNumber: 33
                                         }, this)
                                     ]
                                 }, void 0, true, {
                                     fileName: "[project]/components/chat-interface.tsx",
-                                    lineNumber: 826,
-                                    columnNumber: 15
+                                    lineNumber: 1189,
+                                    columnNumber: 29
                                 }, this)
                             ]
                         }, void 0, true, {
                             fileName: "[project]/components/chat-interface.tsx",
-                            lineNumber: 790,
-                            columnNumber: 13
+                            lineNumber: 1149,
+                            columnNumber: 25
                         }, this)
                     ]
                 }, void 0, true, {
                     fileName: "[project]/components/chat-interface.tsx",
-                    lineNumber: 774,
-                    columnNumber: 11
+                    lineNumber: 1131,
+                    columnNumber: 21
                 }, this)
             }, void 0, false, {
                 fileName: "[project]/components/chat-interface.tsx",
-                lineNumber: 773,
-                columnNumber: 9
+                lineNumber: 1130,
+                columnNumber: 17
             }, this)
         ]
     }, void 0, true, {
         fileName: "[project]/components/chat-interface.tsx",
-        lineNumber: 312,
-        columnNumber: 5
+        lineNumber: 533,
+        columnNumber: 9
     }, this);
 }
 }),
