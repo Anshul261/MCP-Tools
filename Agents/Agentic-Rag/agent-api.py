@@ -30,7 +30,8 @@ from agno.media import File
 from agno.models.azure import AzureOpenAI
 from agno.os import AgentOS
 from agno.tools import Toolkit
-
+from agno.tools.duckduckgo import DuckDuckGoTools
+from agno.team import Team
 # ============================================================================
 # Document Processing Tool
 # ============================================================================
@@ -216,14 +217,71 @@ doc_agent = Agent(
         "If no files are uploaded, answer using your general knowledge.",
         "Be concise, helpful, and reference specific parts of the document when answering.",
     ],
-    db=db,  # Enable session storage
-    enable_user_memories=True,  # Store user preferences and context
-    add_history_to_context=True,  # Add conversation history to context
-    num_history_runs=10,  # Keep last 10 messages in context
-    send_media_to_model=False,  # Let tools handle files
-    store_media=True,  # Store files for tool access
+    db=db,
+    enable_user_memories=True,
+    add_history_to_context=True,
+    num_history_runs=10,
+    send_media_to_model=False,
+    store_media=True,
     markdown=True,
     debug_mode=True,
+)
+
+duckduckgo_agent = Agent(
+    id="duckduckgo-agent",
+    name="DuckDuckGo Agent",
+    model=llm,
+    tools=[DuckDuckGoTools()],
+    instructions=[
+        "You are a helpful assistant that can answer questions and help with tasks.",
+        "You can use the DuckDuckGoTools to search the web for information.",
+        "You can use the history to remember previous conversations and use that information to answer questions.",
+        "You can use the user memories to remember user preferences and use that information to answer questions.",
+        "You can use the session summaries to remember the summary of the session and use that information to answer questions.",
+        "You can use the agentic memory to remember the memory of the agent and use that information to answer questions.",
+        "If the user asks a question that is not related to the documents or the web, you can use the session summaries to remember the summary of the session and use that information to answer questions.",
+        "If the user asks a question that is not related to the documents or the web, you can use the agentic memory to remember the memory of the agent and use that information to answer questions.",
+        "If the user asks a questions that is not related to the document or the web asnwer it to the best of your knowledge, say I do no know if you can not answer it."
+    ],
+    db=db,
+    enable_user_memories=True,
+    enable_session_summaries=True,
+    enable_agentic_memory=True,
+    add_history_to_context=True,
+    num_history_runs=10,
+    store_media=True,
+    markdown=True,
+    debug_mode=True)
+
+# ============================================================================
+# Team Setup
+# ============================================================================
+
+general_team = Team(
+    id="general-team",
+    name="General Team",
+    members=[doc_agent, duckduckgo_agent],
+    instructions=[
+        "Coordinate with team members to provide comprehensive information. Delegate tasks based on the user's request."
+        "You can use the doc_agent to read documents and answer questions about them.",
+        "You can use the duckduckgo_agent to search the web for information.",
+        "You can use the history to remember previous conversations and use that information to answer questions.",
+        "You can use the user memories to remember user preferences and use that information to answer questions.",
+        "You can use the session summaries to remember the summary of the session and use that information to answer questions.",
+        "You can use the agentic memory to remember the memory of the agent and use that information to answer questions.",
+        "If the user asks a question that is not related to the documents or the web, you can use the session summaries to remember the summary of the session and use that information to answer questions.",
+        "If the user asks a question that is not related to the documents or the web, you can use the agentic memory to remember the memory of the agent and use that information to answer questions.",
+        "If the user asks a questions that is not related to the document or the web asnwer it to the best of your knowledge, say I do no know if you can not answer it."
+    ],
+    db=db,
+    enable_user_memories=True,
+    enable_session_summaries=True,
+    enable_agentic_memory=True,
+    add_history_to_context=True,
+    num_history_runs=10,
+    store_media=True,
+    markdown=True,
+    debug_mode=True
 )
 
 # ============================================================================
@@ -233,7 +291,8 @@ doc_agent = Agent(
 agent_os = AgentOS(
     id="simple-doc-agentos",
     name="Simple Document Q&A",
-    agents=[doc_agent],
+    agents=[doc_agent, duckduckgo_agent],
+    teams=[general_team],
 )
 
 app = agent_os.get_app()
