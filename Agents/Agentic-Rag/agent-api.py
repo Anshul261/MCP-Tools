@@ -249,6 +249,7 @@ duckduckgo_agent = Agent(
     enable_agentic_memory=True,
     add_history_to_context=True,
     num_history_runs=10,
+    send_media_to_model=False,
     store_media=True,
     markdown=True,
     debug_mode=True)
@@ -261,8 +262,10 @@ general_team = Team(
     id="general-team",
     name="General Team",
     members=[doc_agent, duckduckgo_agent],
+    model=llm,
     instructions=[
-        "Coordinate with team members to provide comprehensive information. Delegate tasks based on the user's request."
+        "Coordinate with team members to provide comprehensive information. Delegate tasks based on the user's request.",
+        "IMPORTANT: When files are uploaded, IMMEDIATELY delegate to doc-agent to read and process them using the read_document tool.",
         "You can use the doc_agent to read documents and answer questions about them.",
         "You can use the duckduckgo_agent to search the web for information.",
         "You can use the history to remember previous conversations and use that information to answer questions.",
@@ -279,6 +282,7 @@ general_team = Team(
     enable_agentic_memory=True,
     add_history_to_context=True,
     num_history_runs=10,
+    send_media_to_model=False,  # Don't send files directly to coordinator model
     store_media=True,
     markdown=True,
     debug_mode=True

@@ -6,12 +6,16 @@ import { useState, useRef, useEffect } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import {
-    sendMessageToAgent,
+    sendMessageToTeam,
     listSessions,
     getSessionRuns,
     createSession,
+    listTeams,
+    getDefaultTeam,
+    API_BASE_URL,
     type Session,
     type SessionRun,
+    type TeamInfo,
 } from "@/lib/api";
 import {
     Send,
@@ -113,6 +117,11 @@ export function ChatInterface() {
     const [sessions, setSessions] = useState<Session[]>([]);
     const [loadingSessions, setLoadingSessions] = useState(false);
 
+    // Team state
+    const [availableTeams, setAvailableTeams] = useState<TeamInfo[]>([]);
+    const [currentTeam, setCurrentTeam] = useState<TeamInfo | null>(null);
+    const [loadingTeams, setLoadingTeams] = useState(true);
+
     // Agent trace state
     const [currentAgentSteps, setCurrentAgentSteps] = useState<
         AgentTraceStep[]
@@ -127,10 +136,33 @@ export function ChatInterface() {
         }
     }, [isDark]);
 
-    // Load sessions on component mount
+    // Load teams on component mount
     useEffect(() => {
-        loadSessions();
+        const loadTeams = async () => {
+            setLoadingTeams(true);
+            try {
+                const teams = await listTeams();
+                setAvailableTeams(teams);
+                if (teams.length > 0) {
+                    setCurrentTeam(teams[0]);
+                    console.log("[UI] Loaded teams:", teams.map(t => t.name));
+                    console.log("[UI] Default team:", teams[0].name);
+                }
+            } catch (error) {
+                console.error("Failed to load teams:", error);
+            } finally {
+                setLoadingTeams(false);
+            }
+        };
+        loadTeams();
     }, []);
+
+    // Load sessions on component mount (after teams are loaded)
+    useEffect(() => {
+        if (currentTeam) {
+            loadSessions();
+        }
+    }, [currentTeam]);
 
     const loadSessions = async () => {
         setLoadingSessions(true);
@@ -183,15 +215,20 @@ export function ChatInterface() {
     };
 
     const handleNewChat = async () => {
+        if (!currentTeam) {
+            console.error("[UI] No team selected");
+            return;
+        }
+
         setMessages([]);
         setUploadedFiles([]);
         setSelectedProject(null);
 
-        // Create a new session
-        const newSessionId = await createSession();
+        // Create a new session with the current team
+        const newSessionId = await createSession(currentTeam.id);
         if (newSessionId) {
             setSessionId(newSessionId);
-            console.log("[UI] Created new session:", newSessionId);
+            console.log("[UI] Created new session:", newSessionId, "for team:", currentTeam.name);
             // Reload sessions list
             loadSessions();
         }
@@ -222,10 +259,12 @@ export function ChatInterface() {
         setCurrentAgentSteps([]);
         setCurrentProgress("");
 
-        // ONLY call the agent API in general chat mode (NOT in project mode)
-        if (!selectedProject) {
+        // ONLY call the team API in general chat mode (NOT in project mode)
+        if (!selectedProject && currentTeam) {
             try {
-                console.log("[UI] Submitting to agent:", {
+                console.log("[UI] Submitting to team:", {
+                    team: currentTeam.name,
+                    teamId: currentTeam.id,
                     message: currentInput,
                     filesCount: uploadedFiles.length,
                     sessionId,
@@ -248,10 +287,8 @@ export function ChatInterface() {
                     });
                 }
 
-                const apiUrl =
-                    process.env.NEXT_PUBLIC_API_URL || "http://localhost:7777";
                 const response = await fetch(
-                    `${apiUrl}/agents/doc-agent/runs`,
+                    `${API_BASE_URL}/teams/${currentTeam.id}/runs`,
                     {
                         method: "POST",
                         body: formData,
@@ -319,18 +356,19 @@ export function ChatInterface() {
                                         } else if (
                                             currentEvent === "ToolCallStarted"
                                         ) {
+                                            const agentName = data.agent?.name || data.agent?.id || currentTeam?.name || "Team";
                                             const step: AgentTraceStep = {
                                                 type: "tool_call",
                                                 title: `Using ${data.tool?.tool_name || "tool"}`,
                                                 description:
                                                     data.tool?.tool_name ===
-                                                    "read_document"
-                                                        ? "Reading and extracting document content"
+                                                    "delegate_task_to_member"
+                                                        ? "Delegating task to team member"
                                                         : "Processing request",
                                                 timestamp:
                                                     new Date().toLocaleTimeString(),
                                                 tool: data.tool?.tool_name,
-                                                agent: "doc-agent",
+                                                agent: agentName,
                                                 status: "running",
                                             };
                                             setCurrentAgentSteps((prev) => [
@@ -343,6 +381,7 @@ export function ChatInterface() {
                                         } else if (
                                             currentEvent === "ToolCallCompleted"
                                         ) {
+                                            const agentName = data.agent?.name || data.agent?.id || currentTeam?.name || "Team";
                                             const step: AgentTraceStep = {
                                                 type: "tool_call",
                                                 title: `Completed ${data.tool?.tool_name || "tool"}`,
@@ -353,7 +392,7 @@ export function ChatInterface() {
                                                 timestamp:
                                                     new Date().toLocaleTimeString(),
                                                 tool: data.tool?.tool_name,
-                                                agent: "doc-agent",
+                                                agent: agentName,
                                                 status: "completed",
                                             };
                                             setCurrentAgentSteps((prev) => [
@@ -364,14 +403,15 @@ export function ChatInterface() {
                                         } else if (
                                             currentEvent === "RunStarted"
                                         ) {
+                                            const agentName = data.agent?.name || data.agent?.id || currentTeam?.name || "Team";
                                             const step: AgentTraceStep = {
                                                 type: "agent_start",
-                                                title: "Agent started processing",
+                                                title: "Team started processing",
                                                 description:
-                                                    "Document Q&A Agent is analyzing your request",
+                                                    `${currentTeam?.name || "Team"} is analyzing your request`,
                                                 timestamp:
                                                     new Date().toLocaleTimeString(),
-                                                agent: "doc-agent",
+                                                agent: agentName,
                                                 status: "running",
                                             };
                                             setCurrentAgentSteps((prev) => [
@@ -427,7 +467,7 @@ export function ChatInterface() {
                 const errorMessage: Message = {
                     id: (Date.now() + 1).toString(),
                     role: "assistant",
-                    content: `Error: ${error instanceof Error ? error.message : "Unknown error"}. Please make sure the API is running at http://localhost:7777`,
+                    content: `Error: ${error instanceof Error ? error.message : "Unknown error"}. Please make sure the API is running at ${API_BASE_URL}`,
                 };
                 setMessages((prev) => [...prev, errorMessage]);
             } finally {
@@ -435,18 +475,27 @@ export function ChatInterface() {
                 setCurrentAgentSteps([]);
                 setCurrentProgress("");
             }
-        } else {
+        } else if (selectedProject) {
             // Project mode - use mock response (or implement project-specific logic later)
             setTimeout(() => {
                 const assistantMessage: Message = {
                     id: (Date.now() + 1).toString(),
                     role: "assistant",
                     content:
-                        "Project mode is not connected to the agent yet. This is a mock response for project-specific queries.",
+                        "Project mode is not connected to the team yet. This is a mock response for project-specific queries.",
                 };
                 setMessages((prev) => [...prev, assistantMessage]);
                 setIsLoading(false);
             }, 1000);
+        } else if (!currentTeam) {
+            // No team available
+            const errorMessage: Message = {
+                id: (Date.now() + 1).toString(),
+                role: "assistant",
+                content: "No team available. Please check if the API is running and has teams configured.",
+            };
+            setMessages((prev) => [...prev, errorMessage]);
+            setIsLoading(false);
         }
     };
 
@@ -769,9 +818,16 @@ export function ChatInterface() {
                                 <div className="w-8 h-8 rounded-sm bg-primary flex items-center justify-center">
                                     <Sparkles className="w-4 h-4 text-primary-foreground" />
                                 </div>
-                                <h1 className="font-serif text-2xl font-bold text-primary tracking-tight">
-                                    AI Assistant
-                                </h1>
+                                <div>
+                                    <h1 className="font-serif text-2xl font-bold text-primary tracking-tight">
+                                        {currentTeam?.name || "AI Assistant"}
+                                    </h1>
+                                    {currentTeam && (
+                                        <p className="font-mono text-xs text-muted-foreground">
+                                            {currentTeam.members?.length || 0} team members
+                                        </p>
+                                    )}
+                                </div>
                             </>
                         )}
                     </div>
@@ -868,11 +924,14 @@ export function ChatInterface() {
                                 <Sparkles className="w-8 h-8 text-primary" />
                             </div>
                             <h2 className="font-serif text-4xl font-bold text-primary mb-4 tracking-tight">
-                                The AI Assistant
+                                {currentTeam?.name || "AI Assistant"}
                             </h2>
                             <p className="font-mono text-sm text-muted-foreground uppercase tracking-widest max-w-md leading-relaxed">
-                                Your intelligent conversation partner. Ask me
-                                anything to get started.
+                                {loadingTeams
+                                    ? "Loading teams..."
+                                    : currentTeam
+                                      ? `Team with ${currentTeam.members?.length || 0} specialized agents. Ask me anything to get started.`
+                                      : "Your intelligent conversation partner. Ask me anything to get started."}
                             </p>
                             <div className="mt-8 flex flex-wrap gap-3 justify-center">
                                 {[
@@ -1141,8 +1200,9 @@ export function ChatInterface() {
                                 <Button
                                     type="submit"
                                     size="sm"
-                                    disabled={!input.trim() || isLoading}
+                                    disabled={!input.trim() || isLoading || loadingTeams || !currentTeam}
                                     className="font-mono text-xs uppercase tracking-wider rounded-sm bg-primary hover:bg-primary/90 disabled:opacity-50"
+                                    title={!currentTeam ? "No team available" : undefined}
                                 >
                                     <Send className="w-4 h-4" />
                                 </Button>

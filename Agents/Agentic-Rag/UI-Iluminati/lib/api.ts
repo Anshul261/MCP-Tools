@@ -1,11 +1,62 @@
 /**
  * API Configuration for AgentOS Integration
- * Handles communication with the simple document agent
+ * Handles dynamic communication with teams from the backend
  */
 
 // API Configuration
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:7777"
-const AGENT_ID = "doc-agent"
+
+// Export for use in components
+export { API_BASE_URL }
+
+// ============================================================================
+// Team Discovery
+// ============================================================================
+
+export interface TeamInfo {
+  id: string
+  name: string
+  description?: string | null
+  model?: {
+    name: string | null
+    model: string | null
+    provider: string | null
+  } | null
+  members?: TeamMemberInfo[]
+}
+
+export interface TeamMemberInfo {
+  id: string
+  name: string
+  model?: {
+    name: string | null
+    model: string | null
+    provider: string | null
+  } | null
+}
+
+/**
+ * List all available teams from the backend
+ */
+export async function listTeams(): Promise<TeamInfo[]> {
+  try {
+    const response = await fetch(`${API_BASE_URL}/teams`)
+    if (!response.ok) return []
+    const data = await response.json()
+    return Array.isArray(data) ? data : []
+  } catch (error) {
+    console.error("Failed to list teams:", error)
+    return []
+  }
+}
+
+/**
+ * Get the default team (first available team)
+ */
+export async function getDefaultTeam(): Promise<TeamInfo | null> {
+  const teams = await listTeams()
+  return teams.length > 0 ? teams[0] : null
+}
 
 export interface AgentResponse {
   content: string
@@ -15,13 +66,15 @@ export interface AgentResponse {
 }
 
 /**
- * Send a message to the document agent (general chat mode)
+ * Send a message to a team (general chat mode)
+ * @param teamId - The team ID to send the message to
  * @param message - User's message
  * @param files - Optional files to upload with the message
  * @param sessionId - Optional session ID for conversation history
- * @returns Agent's response
+ * @returns Team's response
  */
-export async function sendMessageToAgent(
+export async function sendMessageToTeam(
+  teamId: string,
   message: string,
   files?: File[],
   sessionId?: string
@@ -46,10 +99,10 @@ export async function sendMessageToAgent(
       console.log("[API] No files to upload")
     }
 
-    console.log(`[API] Sending request to: ${API_BASE_URL}/agents/${AGENT_ID}/runs`)
+    console.log(`[API] Sending request to: ${API_BASE_URL}/teams/${teamId}/runs`)
     console.log(`[API] Session ID: ${sessionId || "none"}`)
 
-    const response = await fetch(`${API_BASE_URL}/agents/${AGENT_ID}/runs`, {
+    const response = await fetch(`${API_BASE_URL}/teams/${teamId}/runs`, {
       method: "POST",
       body: formData,
     })
@@ -71,10 +124,10 @@ export async function sendMessageToAgent(
       session_id: data.session_id,
     }
   } catch (error) {
-    console.error("Error calling agent API:", error)
+    console.error("Error calling team API:", error)
     return {
       content: "",
-      error: error instanceof Error ? error.message : "Failed to get response from agent",
+      error: error instanceof Error ? error.message : "Failed to get response from team",
     }
   }
 }
@@ -137,7 +190,7 @@ export interface SessionRun {
 }
 
 /**
- * List all sessions for the agent
+ * List all sessions for the team
  */
 export async function listSessions(
   page: number = 1,
@@ -145,7 +198,7 @@ export async function listSessions(
 ): Promise<SessionsResponse | null> {
   try {
     const response = await fetch(
-      `${API_BASE_URL}/sessions?type=agent&page=${page}&limit=${limit}&sort_by=updated_at&sort_order=desc`
+      `${API_BASE_URL}/sessions?type=team&page=${page}&limit=${limit}&sort_by=updated_at&sort_order=desc`
     )
     if (!response.ok) return null
     return await response.json()
@@ -160,7 +213,7 @@ export async function listSessions(
  */
 export async function getSession(sessionId: string): Promise<any> {
   try {
-    const response = await fetch(`${API_BASE_URL}/sessions/${sessionId}?type=agent`)
+    const response = await fetch(`${API_BASE_URL}/sessions/${sessionId}?type=team`)
     if (!response.ok) return null
     return await response.json()
   } catch (error) {
@@ -174,7 +227,7 @@ export async function getSession(sessionId: string): Promise<any> {
  */
 export async function getSessionRuns(sessionId: string): Promise<SessionRun[]> {
   try {
-    const response = await fetch(`${API_BASE_URL}/sessions/${sessionId}/runs?type=agent`)
+    const response = await fetch(`${API_BASE_URL}/sessions/${sessionId}/runs?type=team`)
     if (!response.ok) return []
     const data = await response.json()
     return Array.isArray(data) ? data : []
@@ -186,11 +239,13 @@ export async function getSessionRuns(sessionId: string): Promise<SessionRun[]> {
 
 /**
  * Create a new session
+ * @param teamId - The team ID to associate with the session
+ * @param sessionName - Optional custom session name
  */
-export async function createSession(sessionName?: string): Promise<string | null> {
+export async function createSession(teamId: string, sessionName?: string): Promise<string | null> {
   try {
     const sessionId = `session_${Date.now()}`
-    const response = await fetch(`${API_BASE_URL}/sessions?type=agent`, {
+    const response = await fetch(`${API_BASE_URL}/sessions?type=team`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -198,7 +253,7 @@ export async function createSession(sessionName?: string): Promise<string | null
       body: JSON.stringify({
         session_id: sessionId,
         session_name: sessionName || `Chat ${new Date().toLocaleString()}`,
-        agent_id: AGENT_ID,
+        team_id: teamId,
       }),
     })
 
@@ -213,5 +268,20 @@ export async function createSession(sessionName?: string): Promise<string | null
     console.error("Failed to create session:", error)
     // Return a new session ID anyway - it will be created on first message
     return `session_${Date.now()}`
+  }
+}
+
+/**
+ * Get team details including members
+ * @param teamId - The team ID to get details for
+ */
+export async function getTeamDetails(teamId: string): Promise<TeamInfo | null> {
+  try {
+    const response = await fetch(`${API_BASE_URL}/teams/${teamId}`)
+    if (!response.ok) return null
+    return await response.json()
+  } catch (error) {
+    console.error("Failed to get team details:", error)
+    return null
   }
 }
