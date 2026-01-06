@@ -31,3 +31,6 @@ node_modules/
 
 *.jpg
 .next
+
+client_secret_398183445172-l83cj61nme1l06ml8oitlv2vvcb93lqd.apps.googleusercontent.com.json
+token.json
