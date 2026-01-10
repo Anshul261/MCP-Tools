@@ -19,7 +19,7 @@ prompt_injection_guardrail = PromptInjectionGuardrail()
 # )
 # 1. Configure vector database with embedder
 vector_db = PgVector(
-    table_name="company_knowledge",
+    table_name="it_support_knowledge",
     db_url="postgresql+psycopg://ai:ai@localhost:5533/ai",
     embedder=HuggingfaceCustomEmbedder(
         id="sentence-transformers/all-MiniLM-L6-v2",
@@ -42,20 +42,33 @@ chunking_embedder = HuggingfaceCustomEmbedder(
     dimensions=384,  # all-MiniLM-L6-v2 produces 384-dim embeddings
 )
 
-# 3. Add content with chunking strategy
-knowledge.add_content(
-    path="IT-L1-Support-Knowledge-Base.pdf",
-    reader=PDFReader(
-        chunking_strategy=SemanticChunking(
-            embedder=chunking_embedder,
-            chunk_size=500,  # Reduced to avoid token length warnings
-            similarity_threshold=0.5,
-        )
-    ),
-    metadata={"type": "IT", "Category": "L1-Support"},
+# 3. Add content with chunking strategy - load multiple PDFs with individual metadata
+pdf_reader = PDFReader(
+    chunking_strategy=SemanticChunking(
+        embedder=chunking_embedder,
+        chunk_size=500,  # Reduced to avoid token length warnings
+        similarity_threshold=0.5,
+    )
 )
+
+# Add each PDF with its specific metadata
+pdf_files = [
+    # ("IT-L1-Support-Knowledge-Base.pdf", {"type": "IT", "category": "L1-Support", "document": "Knowledge Base"}),
+    ("IT Heldesk- OneDrive Related issues.pdf", {"type": "IT", "category": "OneDrive", "document": "OneDrive Issues"}),
+    ("IT Helpdesk - Default APP set up.pdf", {"type": "IT", "category": "Apps", "document": "App Setup"}),
+    ("IT Helpdesk - Priner Configuration.pdf", {"type": "IT", "category": "Printer", "document": "Printer Configuration"}),
+    ("IT Helpdesk- Outlook Issues.pdf", {"type": "IT", "category": "Outlook", "document": "Outlook Issues"}),
+]
+
+# Load all PDFs into the knowledge base
+for pdf_path, metadata in pdf_files:
+    knowledge.add_content(
+        path=pdf_path,
+        reader=pdf_reader,
+        metadata=metadata,
+    )
 llm = AzureOpenAI(
-    id=os.getenv("AZURE_OPENAI_DEPLOYMENT_NAME"),
+    id=os.getenv("AZURE_OPENAI_DEPLOYMENT_NAME", "gpt-4.1-mini"),
     api_key=os.getenv("AZURE_OPENAI_API_KEY"),
     api_version=os.getenv("OPENAI_API_VERSION", "2024-02-15-preview"),
     azure_endpoint=os.getenv("AZURE_OPENAI_ENDPOINT"),
