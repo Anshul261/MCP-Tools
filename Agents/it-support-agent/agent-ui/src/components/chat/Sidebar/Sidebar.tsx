@@ -16,7 +16,7 @@ import { useQueryState } from 'nuqs'
 const SidebarHeader = () => (
   <div className="flex items-center gap-2">
     <Icon type="agent" size="xs" />
-    <span className="text-xs font-medium uppercase text-white">Forsite Assistant</span>
+    <span className="text-xs font-medium uppercase text-white">Foresight Assistant</span>
   </div>
 )
 
