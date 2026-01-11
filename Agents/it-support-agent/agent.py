@@ -109,6 +109,8 @@ it_support_agent = Agent(
     telemetry=False,
     num_history_runs=5,
     add_name_to_context=True,
+    stream=True,
+    stream_events=True,
 )
 
 agent_os = AgentOS(
@@ -118,6 +120,20 @@ agent_os = AgentOS(
 )
 
 app = agent_os.get_app()
+
+# Add CORS middleware to allow frontend access
+from fastapi.middleware.cors import CORSMiddleware
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=[
+        "http://localhost:3000",
+        "http://localhost:3001",
+    ],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 if __name__ == "__main__":
     # Load all PDFs into the knowledge base before starting the server
