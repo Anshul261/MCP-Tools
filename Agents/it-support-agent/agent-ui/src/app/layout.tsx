@@ -16,9 +16,9 @@ const dmMono = DM_Mono({
 })
 
 export const metadata: Metadata = {
-  title: 'AISA - IT Support Assistant',
+  title: 'Foresight Assistant - IT Support',
   description:
-    'Alpha Data IT Support Assistant - Get help with IT issues from our AI-powered support agent.'
+    'Foresight Assistant - Get help with IT issues from our AI-powered support agent.'
 }
 
 export default function RootLayout({
