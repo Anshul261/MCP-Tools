@@ -28,10 +28,10 @@ const ChatBlankState = () => {
             <Icon type="agent" size="lg" className="text-primary" />
           </div>
           <h1 className="text-4xl font-[600] tracking-tight text-foreground">
-            Welcome to AISA
+            Welcome to Foresight Assistant
           </h1>
           <p className="text-lg text-muted">
-            Your Alpha Data IT Support Assistant
+            Your IT Support Assistant
           </p>
         </motion.div>
 
