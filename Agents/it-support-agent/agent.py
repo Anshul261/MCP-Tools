@@ -142,7 +142,9 @@ if __name__ == "__main__":
             path=pdf_path,
             reader=pdf_reader,
             metadata=metadata,
+            skip_if_exists=True,  # Skip re-uploading if content already in vector DB
         )
 
     # Default port is 7777; change with port=...
-    agent_os.serve(app="agent:app", reload=True)
+    # Bind to 0.0.0.0 so Windows browser can reach WSL2
+    agent_os.serve(app="agent:app", reload=True, host="0.0.0.0")
