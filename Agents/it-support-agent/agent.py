@@ -168,7 +168,7 @@ def create_manageengine_ticket(
         group: Support group (from get_support_groups)
         impact: Impact level - Low, Medium, High
         urgency: Urgency level - Low, Medium, High
-        request_type: Type of request - Incident, Service Request, etc.
+        request_type: Type of request - Incident, Service Request, Preventive Maintenance, Security Incident, Security Request, Request for Information, Change Requests.
 
     Returns:
         dict: API response with ticket details or error message
@@ -336,7 +336,9 @@ manage_engine_agent = Agent(
         "3. Use get_subcategories(category_id) with the chosen category's ID to get subcategories",
         "4. Use get_items(subcategory_id) with the chosen subcategory's ID to get items",
         "5. Use get_support_groups to pick an appropriate group",
-        "6. Call create_manageengine_ticket with all the names (not IDs) for category, subcategory, item",
+        "6. Use the users chat messges to provide the description for the ticket and include the details of the issues as mentioned by the user in the chat messages",
+        "7. Set the request_type as per the user's request type from the chat messages. The request type can be Incident, Service Request, Preventive Maintenance, Security Incident, Security Request, Request for Information, Change Requests.",
+        "8. Call create_manageengine_ticket with all the names (not IDs) for category, subcategory, item",
         "For wifi issues: category='Network & Security', subcategory='Wireless/AP', then pick matching item.",
     ],
     markdown=True,
