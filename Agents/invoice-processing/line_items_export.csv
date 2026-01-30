@@ -1,0 +1,26 @@
+id,invoice_id,item_no,description,qty,unit_measure,net_price,net_worth,vat_percent,gross_worth
+1,1,1,CLEARANCE! Fast Dell Desktop Computer PC DUAL CORE WINDOWS 10 4/8/16GB RAM,3.00,each,209.00,627.00,10.00,689.70
+2,1,2,HP T520 Thin Client Computer AMD GX-212JC 1.2GHz 4GB RAM TESTED !!READ BELOW!!,5.00,each,37.75,188.75,10.00,207.63
+3,1,3,gaming pc desktop computer,1.00,each,400.00,400.00,10.00,440.00
+4,1,4,12-Core Gaming Computer Desktop PC Tower Affordable GAMING PC 8GB AMD Vega RGB,3.00,each,464.89,1394.67,10.00,1534.14
+5,1,5,Custom Build Dell Optiplex 9020 MT i5-4570 3.20GHz Desktop Computer PC,5.00,each,221.99,1109.95,10.00,1220.95
+6,1,6,Dell Optiplex 990 MT Computer PC Quad Core i7 3.4GHz 16GB 2TB HD Windows 10 Pro,4.00,each,269.95,1079.80,10.00,1187.78
+7,1,7,Dell Core 2 Duo Desktop Computer Windows XP Pro 4GB 500GB,5.00,each,168.00,840.00,10.00,924.00
+8,2,1,"HP Desktop Computer PC ⮞ Core i5 16GB 2TB HD 256GB SSD 22"" LCD ⮞ Windows 10",4.00,each,139.95,559.80,10.00,615.78
+9,2,2,"CUSTOM BUILT AMD RYZEN THREADRIPPER GAMING COMPUTER , 32 GB RAM,",3.00,each,1400.00,4200.00,10.00,4620.00
+10,2,3,Fast Dell Optiplex Desktop PC Computer Dual Core 3.4Ghz 8GB 1TB Win 10 Pro WIFI,1.00,each,217.00,217.00,10.00,238.70
+11,2,4,Dell Optiplex 790 Computer i7 @ 3.40 Ghz Quad Core 250GB 4GB Working,3.00,each,159.99,479.97,10.00,527.97
+12,2,5,Vintage Microsolutions Pentium 133mhz Desktop Tower PC Windows 95 5.25 Floppy,2.00,each,390.00,780.00,10.00,858.00
+13,3,1,"15""x15"" White Decorative Coffee Table Top Lapis Lazuli Marquetery Patio Décor",3.00,each,645.77,1937.31,10.00,2131.04
+14,3,2,4'x2' Marble Dining Table Top Pietra Dura Birds Inlay Art Furniture Decors B444,5.00,each,1840.10,9200.50,10.00,10120.55
+15,3,3,60 Inches Marble Dinning Table Top Hand Inlaid Garden Table with Gemstones,5.00,each,5908.00,29540.00,10.00,32494.00
+16,4,1,Handmade Thick round warm crochet Rug Carpet Mat 97% acrylic 3% me Floor Decor,4.00,each,44.99,179.96,10.00,197.96
+17,4,2,Rug White Moroccan Beni Ourain Trellis Shag Area Rug Authentic Handmade Carpet,2.00,each,245.00,490.00,10.00,539.00
+18,4,3,Abstract Living Room Carpet Home Decor Nordic Style Bedside Area Rug Floor Mats,1.00,each,24.01,24.01,10.00,26.41
+19,4,4,Leopard Printed Rug Skin Mat Leather Faux Fur Animals Area Rugs Home Carpets,1.00,each,19.49,19.49,10.00,21.44
+20,4,5,1pc Exquisite Durable Foot Cloth Christmas Carpet Xmas Cushion for Kitchen,2.00,each,15.57,31.14,10.00,34.25
+21,5,1,Wild West Wine,2.00,each,27.00,54.00,10.00,59.40
+22,5,2,Press Wine 15L Fruit Cider Apple Crusher Juice Grape Stainless Maker Grapes New,2.00,each,279.00,558.00,10.00,613.80
+23,5,3,Wine Rack Holder Iron Art Hanging Racks Glass Cup Stemware Shelf Mounted 2 Color,3.00,each,18.75,56.25,10.00,61.87
+24,5,4,Rust Proof Three Rows Tool Wine Glass Holder Simple Iron Wire Home Hanging Rack,2.00,each,11.56,23.12,10.00,25.43
+25,5,5,VTG 1970s MCM Brown Steel Tube Wall or Desk Mounted 12-Wine Rack Bottle Holder,1.00,each,34.00,34.00,10.00,37.40
