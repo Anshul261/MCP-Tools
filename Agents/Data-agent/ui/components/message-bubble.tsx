@@ -1,4 +1,4 @@
-import { Copy, RotateCcw, ExternalLink, Bot, BarChart3, TrendingUp } from "lucide-react"
+import { Copy, RotateCcw, ExternalLink, Bot, BarChart3, TrendingUp, PieChart, LayoutDashboard } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { cn } from "@/lib/utils"
@@ -27,9 +27,10 @@ interface MessageBubbleProps {
   visualizations?: Visualization[]
   agentUsed?: string
   steps?: AnalysisStep[]
+  visualizationMode?: 'dashboard' | 'single_chart' | null
 }
 
-export function MessageBubble({ content, isUser, timestamp, visualizations = [], agentUsed, steps = [] }: MessageBubbleProps) {
+export function MessageBubble({ content, isUser, timestamp, visualizations = [], agentUsed, steps = [], visualizationMode }: MessageBubbleProps) {
   return (
     <div className={cn("flex gap-3 group", isUser ? "justify-end" : "justify-start")}>
       {!isUser && (
@@ -51,10 +52,23 @@ export function MessageBubble({ content, isUser, timestamp, visualizations = [],
             <Streamdown>{content}</Streamdown>
           </div>
 
-          {/* Display agent info */}
+          {/* Display agent info with visualization mode */}
           {!isUser && agentUsed && (
-            <div className="mt-2 text-xs text-muted-foreground">
-              <Bot className="w-3 h-3 inline mr-1" />{agentUsed}
+            <div className="mt-2 flex items-center justify-between">
+              <div className="text-xs text-muted-foreground">
+                <Bot className="w-3 h-3 inline mr-1" />{agentUsed}
+              </div>
+              {visualizationMode && (
+                <div className={cn("text-xs px-2 py-1 rounded-full",
+                  visualizationMode === 'dashboard' ? "bg-blue-100 text-blue-700" : "bg-green-100 text-green-700"
+                )}>
+                  {visualizationMode === 'dashboard' ? (
+                    <><LayoutDashboard className="w-3 h-3 inline mr-1" />Dashboard Mode</>
+                  ) : (
+                    <><PieChart className="w-3 h-3 inline mr-1" />Single Chart</>
+                  )}
+                </div>
+              )}
             </div>
           )}
 
@@ -93,13 +107,13 @@ export function MessageBubble({ content, isUser, timestamp, visualizations = [],
                 <div key={index} className="border rounded-lg p-3 bg-background/50">
                   <div className="flex items-center justify-between mb-2">
                     <span className="text-xs font-medium text-muted-foreground">
-                      {viz.type === 'image' ? <><BarChart3 className="w-3 h-3 inline mr-1" />Chart</> : <><TrendingUp className="w-3 h-3 inline mr-1" />Interactive Dashboard</>}
+                      {viz.type === 'image' ? <><BarChart3 className="w-3 h-3 inline mr-1" />Chart</> : <><TrendingUp className="w-3 h-3 inline mr-1" />Interactive Dashboard • Multiple Charts</>}
                     </span>
                     <Button 
                       variant="ghost" 
                       size="sm" 
                       className="h-6 w-6 p-0"
-                      onClick={() => window.open(`http://localhost:7777${viz.url}`, '_blank')}
+                      onClick={() => window.open(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:7777'}${viz.url}`, '_blank')}
                     >
                       <ExternalLink className="w-3 h-3" />
                     </Button>
@@ -107,7 +121,7 @@ export function MessageBubble({ content, isUser, timestamp, visualizations = [],
                   
                   {viz.type === 'image' ? (
                     <img 
-                      src={`http://localhost:7777${viz.url}`}
+                      src={`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:7777'}${viz.url}`}
                       alt={viz.filename}
                       className="w-full h-auto rounded border"
                       onError={(e) => {
@@ -116,13 +130,17 @@ export function MessageBubble({ content, isUser, timestamp, visualizations = [],
                       }}
                     />
                   ) : (
-                    <div className="bg-muted/30 rounded p-4 text-center">
-                      <p className="text-sm text-muted-foreground mb-2">Interactive Dashboard</p>
-                      <Button 
-                        variant="outline" 
+                    <div className="bg-gradient-to-br from-blue-50 to-indigo-100 rounded p-4 text-center border-2 border-dashed border-blue-200">
+                      <LayoutDashboard className="w-8 h-8 mx-auto mb-2 text-blue-500" />
+                      <p className="text-sm font-medium text-blue-700 mb-2">Multi-Chart Dashboard</p>
+                      <p className="text-xs text-blue-600 mb-3">Interactive charts with data insights</p>
+                      <Button
+                        variant="outline"
                         size="sm"
-                        onClick={() => window.open(`http://localhost:7777${viz.url}`, '_blank')}
+                        className="border-blue-300 text-blue-700 hover:bg-blue-100"
+                        onClick={() => window.open(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:7777'}${viz.url}`, '_blank')}
                       >
+                        <ExternalLink className="w-3 h-3 mr-1" />
                         Open Dashboard
                       </Button>
                     </div>

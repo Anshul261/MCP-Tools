@@ -11,6 +11,7 @@ from dotenv import load_dotenv
 from agno.team import Team
 from agno.tools.reasoning import ReasoningTools
 from agno.os import AgentOS
+# from agno.models.ollama import Ollama
 
 load_dotenv()
 console = Console()
@@ -20,6 +21,7 @@ from agno.db.sqlite import SqliteDb
 
 db = SqliteDb(db_file="tmp/data.db")
 
+
 def get_model():
     return AzureOpenAI(
         id=os.getenv("AZURE_OPENAI_DEPLOYMENT_NAME"),
@@ -28,6 +30,21 @@ def get_model():
         azure_endpoint=os.getenv("AZURE_OPENAI_ENDPOINT"),
         azure_deployment=os.getenv("AZURE_OPENAI_DEPLOYMENT_NAME"),
     )
+
+
+def get_model_gpt5():
+    return AzureOpenAI(
+        id=os.getenv("AZURE_OPENAI_DEPLOYMENT_NAME_5"),
+        api_key=os.getenv("AZURE_OPENAI_API_KEY_5"),
+        api_version="2025-03-01-preview",
+        azure_endpoint=os.getenv("AZURE_OPENAI_ENDPOINT_5"),
+        azure_deployment=os.getenv("AZURE_OPENAI_DEPLOYMENT_NAME"),
+    )
+
+
+# def get_model_ollama():
+#     return Ollama(id="gpt-oss:20b")
+
 
 # Combined Intelligence Analyst
 intelligence_analyst = Agent(
@@ -56,22 +73,22 @@ bull_bear_analyst = Agent(
     """),
     instructions=dedent("""
         Based on the intelligence analysis, present:
-        
+
         1. BULL CASE (2-3 strongest arguments):
         - Key growth drivers and catalysts
         - Competitive advantages
         - Undervaluation or momentum factors
-        
+
         2. BEAR CASE (2-3 strongest concerns):
         - Primary risk factors
         - Overvaluation concerns
         - Competitive or regulatory threats
-        
+
         3. SYNTHESIS:
         - Which case is stronger and why
         - Key factors that will determine outcome
         - Probability-weighted scenarios
-        
+
         Be decisive but balanced. Focus on the most compelling arguments.
     """),
     expected_output="Bull/bear debate with synthesized investment thesis and key decision factors",
@@ -121,7 +138,7 @@ fast_stock_team = Team(
         - Remember user preferences and risk tolerance
         - Build knowledge of successful patterns over time
 
-        OUTPUT: 
+        OUTPUT:
         Direct answer to user's question with relevant analysis and clear recommendation when appropriate.
 """
     ],
@@ -129,17 +146,16 @@ fast_stock_team = Team(
     enable_session_summaries=True,
     enable_agentic_memory=True,
     markdown=True,
-    cache_session= True,
+    cache_session=True,
     tool_call_limit=10,
     share_member_interactions=True,
     stream_intermediate_steps=True,
     add_datetime_to_context=True,
     add_name_to_context=True,
     add_member_tools_to_context=True,
-
     add_history_to_context=True,
     num_history_runs=3,
-    stream=True
+    stream=True,
 )
 
 agent_os = AgentOS(
@@ -151,9 +167,13 @@ app = agent_os.get_app()
 
 # Add CORS middleware for Next.js UI
 from fastapi.middleware.cors import CORSMiddleware
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000", "http://localhost:3001"],  # Next.js dev server
+    allow_origins=[
+        "http://localhost:3000",
+        "http://localhost:3001",
+    ],  # Next.js dev server
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

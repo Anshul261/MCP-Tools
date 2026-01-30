@@ -31,9 +31,23 @@ from agno.db.postgres import PostgresDb
 load_dotenv()
 console = Console()
 
-db_url = "postgresql+psycopg://ai:ai@localhost:5533/ai"
-db = PostgresDb(db_url=db_url)
+# Build database URL from environment variables
+db_host = os.getenv("DB_HOST", "localhost")
+db_port = os.getenv("DB_PORT", "5533")
+db_user = os.getenv("DB_USER", "ai")
+db_password = os.getenv("DB_PASSWORD", "ai")
+db_name = os.getenv("DB_NAME", "ai")
 
+db_url = f"postgresql+psycopg://{db_user}:{db_password}@{db_host}:{db_port}/{db_name}"
+console.print(f"[blue]Connecting to database: {db_user}@{db_host}:{db_port}/{db_name}[/blue]")
+db = PostgresDb(db_url=db_url)
+llm=AzureOpenAI(
+        id=os.getenv("AZURE_OPENAI_DEPLOYMENT_NAME"),
+        api_key=os.getenv("AZURE_OPENAI_API_KEY"),
+        api_version=os.getenv("OPENAI_API_VERSION", "2024-02-15-preview"),
+        azure_endpoint=os.getenv("AZURE_OPENAI_ENDPOINT"),
+        azure_deployment=os.getenv("AZURE_OPENAI_DEPLOYMENT_NAME"),
+    )
 u_id="anshulraj@gmail.com"
 
 # API Models
@@ -101,10 +115,39 @@ def display_data_info(column_types):
 processor = DataProcessor()
 file_path = "realistic_ticket_data.xlsx"
 
-console.print(Panel.fit("Data Analysis System Initializing", style="bold blue"))
+# Initialize data only once using file-based flag to survive reloads
+data_flag_file = ".data_initialized"
+csv_path = file_path.replace('.xlsx', '.csv').replace('.xls', '.csv')
 
-csv_path, column_types = processor.clean_and_infer_types(file_path)
-display_data_info(column_types)
+if not os.path.exists(data_flag_file) or not os.path.exists(csv_path):
+    console.print(Panel.fit("Data Analysis System Initializing", style="bold blue"))
+    csv_path, column_types = processor.clean_and_infer_types(file_path)
+    display_data_info(column_types)
+    # Create flag file to prevent reprocessing
+    with open(data_flag_file, 'w') as f:
+        f.write("initialized")
+else:
+    # Reuse already processed data - load column types from CSV with proper inference
+    if os.path.exists(csv_path):
+        # Read a small sample to get proper column types
+        df_sample = pd.read_csv(csv_path, nrows=1000)
+        # Apply the same type inference as the original processing
+        for col in df_sample.columns:
+            if any(word in col.lower() for word in ['date', 'time', 'created', 'updated', 'resolved']):
+                try:
+                    df_sample[col] = pd.to_datetime(df_sample[col])
+                except (ValueError, TypeError):
+                    pass
+            elif df_sample[col].dtype == 'object':
+                try:
+                    df_sample[col] = pd.to_numeric(df_sample[col])
+                except (ValueError, TypeError):
+                    pass
+        column_types = df_sample.dtypes.to_dict()
+        console.print(f"[green]Reusing processed data: {csv_path}[/green]")
+    else:
+        # Fallback if CSV doesn't exist
+        csv_path, column_types = processor.clean_and_infer_types(file_path)
 
 # Initialize tools
 # duckdb_tools = DuckDbTools(create_tables=False, export_tables=False, summarize_tables=False)
@@ -118,88 +161,142 @@ duckdb_tools.create_table_from_path(path=csv_path, table="data")
 # Data Analysis Agent - specialized for querying and basic analysis
 data_analyst = Agent(
     name="Data Analyst",
-    model=AzureOpenAI(
-        id=os.getenv("AZURE_OPENAI_DEPLOYMENT_NAME"),
-        api_key=os.getenv("AZURE_OPENAI_API_KEY"),
-        api_version=os.getenv("OPENAI_API_VERSION", "2024-02-15-preview"),
-        azure_endpoint=os.getenv("AZURE_OPENAI_ENDPOINT"),
-        azure_deployment=os.getenv("AZURE_OPENAI_DEPLOYMENT_NAME"),
-    ),
+    model=llm,
     tools=[duckdb_tools],
     instructions=[
         "You are a data analyst with access to a 'data' table containing ticket/support request data.",
-        "The data table has 4469 rows and columns including: Request ID, Category, Subcategory, SLA Name, Created Time, etc.",
+        "You have access to ONLY the 'data' table - do not query any other tables as they don't exist.",
+        "IMPORTANT: Always start by running 'DESCRIBE data' to understand the current schema before running analysis queries.",
+        "Use exact column names from the schema - column names may contain spaces and need to be quoted with double quotes.",
+        "For date operations, use STRFTIME('%Y-%m', \"Created Time\") for monthly grouping - do NOT use DATE_TRUNC.",
         "Always use SQL queries to analyze the actual data in the 'data' table.",
         "Provide detailed analysis with specific numbers and insights from the data.",
-        "When analyzing trends, use date functions on the 'Created Time' column.",
         "Focus on real patterns in the actual data, not hypothetical scenarios.",
+        "",
+        "For insight requests, provide a comprehensive text summary with key findings:",
+        "- FIRST: Run DESCRIBE data to get current schema",
+        "- Execute 3-5 relevant SQL queries to gather key metrics from the 'data' table ONLY",
+        "- Use proper DuckDB syntax: STRFTIME for dates, proper column quoting",
+        "- Summarize findings in clear, actionable insights",
+        "- Include specific numbers and percentages",
+        "- Stop after providing insights - do not create visualizations unless specifically requested",
+        "",
+        "CRITICAL: Only query the 'data' table. If a query fails, check the schema and use correct DuckDB syntax.",
     ],
 )
 
 # Visualization Agent - specialized for creating charts
 viz_specialist = Agent(
     name="Visualization Specialist",
-    model=AzureOpenAI(
-        id=os.getenv("AZURE_OPENAI_DEPLOYMENT_NAME"),
-        api_key=os.getenv("AZURE_OPENAI_API_KEY"),
-        api_version=os.getenv("OPENAI_API_VERSION", "2024-02-15-preview"),
-        azure_endpoint=os.getenv("AZURE_OPENAI_ENDPOINT"),
-        azure_deployment=os.getenv("AZURE_OPENAI_DEPLOYMENT_NAME"),
-    ),
+    model=llm,
     tools=[python_tools, duckdb_tools],
     instructions=[
         "You are a visualization specialist. You MUST create actual files when users request visualizations.",
-        "WORKFLOW: 1) Query data with DuckDB, 2) Create visualization with Python, 3) Save to output/ folder",
-        "MANDATORY: Use Python tools to execute code that saves files - never just talk about creating them.",
-        "For pie charts: Use matplotlib with plt.pie(), save as PNG to output/ folder",
-        "For line/bar charts: Use matplotlib, save as PNG to output/ folder", 
-        "For dashboards: Create HTML with embedded Chart.js, save to output/ folder",
-        "EXACT WORKING EXAMPLE for pie chart:",
-        "1. DuckDB: SELECT Category, COUNT(*) as count FROM data GROUP BY Category", 
-        "2. Python code to execute:",
-        "   import matplotlib.pyplot as plt",
-        "   plt.figure(figsize=(10, 8))",  
-        "   plt.pie(counts, labels=categories, autopct='%1.1f%%', startangle=90)",
-        "   plt.title('Category Distribution')",
-        "   plt.axis('equal')",
-        "   plt.savefig('output/category_pie_chart.png', dpi=300, bbox_inches='tight')",
-        "   plt.close()",
-        "3. Confirm file was saved to output/ folder",
-        "CRITICAL: You must actually execute the Python code to create and save files.",
-        "Never respond without creating the requested visualization file first.",
-        "Always use descriptive filenames like 'category_pie_chart.png' or 'monthly_trends.png'",
+
+        "MODE DETECTION - Choose visualization approach based on user request:",
+        "DASHBOARD MODE: If user asks for 'dashboard', 'comprehensive analysis', 'overview', 'complete view', 'full analysis', 'multiple charts', or asks complex multi-faceted questions",
+        "SINGLE CHART MODE: If user asks for specific 'chart', 'graph', 'plot', 'show me [specific metric]', or requests one specific visualization",
+
+        "DASHBOARD MODE WORKFLOW:",
+        "1) Query data with DuckDB for multiple related metrics",
+        "2) Create comprehensive HTML dashboard with 3-4 related charts using Chart.js",
+        "3) Include KPI summary cards, insights section, and professional styling",
+        "4) Use dashboard_templates.py functions for consistent layout",
+        "5) Save as HTML to output/ folder with descriptive name like 'comprehensive_dashboard.html'",
+
+        "SINGLE CHART MODE WORKFLOW:",
+        "1) Query data with DuckDB for specific metric",
+        "2) Create focused visualization with matplotlib",
+        "3) Save as PNG to output/ folder with descriptive name",
+
+        "DASHBOARD CREATION TEMPLATE:",
+        "```python",
+        "from dashboard_templates import get_html_template, get_chart_js_template, get_stat_card_template",
+        "# Query data first to get actual values",
+        "# Create HTML template - get_html_template() takes NO parameters",
+        "html_template = get_html_template()",
+        "# Create stat cards using template replacement",
+        "stat_card_template = get_stat_card_template()",
+        "stats_html = stat_card_template.replace('{{NUMBER}}', '1000').replace('{{LABEL}}', 'Total Tickets')",
+        "# Create chart JS using get_chart_js_template(chart_id, chart_type, data_labels, data_values, title)",
+        "chart_js = get_chart_js_template('chart1', 'pie', ['A', 'B'], [10, 20], 'My Chart')",
+        "# Create chart containers using get_chart_card_template()",
+        "chart_card_template = get_chart_card_template()",
+        "charts_html = chart_card_template.replace('{{CHART_TITLE}}', 'My Chart').replace('{{CHART_ID}}', 'chart1')",
+        "# Replace placeholders: {{STATS_CONTENT}}, {{CHARTS_CONTENT}}, {{INSIGHTS_CONTENT}}, {{JAVASCRIPT_CONTENT}}",
+        "final_html = html_template.replace('{{STATS_CONTENT}}', stats_html).replace('{{CHARTS_CONTENT}}', charts_html)",
+        "# Save to output/ folder - avoid filename conflicts with template",
+        "```",
+
+        "SINGLE CHART EXAMPLE:",
+        "1. DuckDB: SELECT Category, COUNT(*) as count FROM data GROUP BY Category",
+        "2. Python: matplotlib visualization, save PNG to output/",
+
+        "CRITICAL REQUIREMENTS:",
+        "- ALWAYS query actual data first with DuckDB from the 'data' table only",
+        "- MUST execute Python code to create and save files",
+        "- Dashboard mode: Create 3-4 related visualizations in one HTML file",
+        "- Single mode: Create focused analysis with one PNG chart",
+        "- Include data-driven insights and specific numbers in all outputs",
+        "- Never respond without creating the requested file(s)",
+        "",
+        "IMPORTANT FUNCTION SIGNATURES:",
+        "- get_html_template() - takes NO parameters, returns template string",
+        "- get_chart_js_template(chart_id, chart_type, data_labels, data_values, title) - requires all 5 parameters",
+        "- get_stat_card_template() - takes NO parameters, returns template string",
+        "- get_chart_card_template() - takes NO parameters, returns chart container template",
+        "- Use template.replace('{{PLACEHOLDER}}', 'value') to fill templates",
+        "",
+        "CRITICAL: Always use specific filenames like 'ticket_dashboard.html' or 'category_analysis.html'",
+        "NEVER use generic names like 'comprehensive_dashboard.html' that might conflict with templates",
     ],
 )
 
 analysis_team = Team(
     name="Data Analysis Team",
     db=db,
-    model=AzureOpenAI(
-        id=os.getenv("AZURE_OPENAI_DEPLOYMENT_NAME"),
-        api_key=os.getenv("AZURE_OPENAI_API_KEY"),
-        api_version=os.getenv("OPENAI_API_VERSION", "2024-02-15-preview"),
-        azure_endpoint=os.getenv("AZURE_OPENAI_ENDPOINT"),
-        azure_deployment=os.getenv("AZURE_OPENAI_DEPLOYMENT_NAME"),
-    ),
+    model=llm,
     members=[data_analyst, viz_specialist],
     tools=[reasoning_tools],
     instructions=[
-        f"You have access to a 'data' table with {len(column_types)} columns and 4469 rows of ticket/support data.",
-        f"Column types: {column_types}",
-        "CRITICAL WORKFLOW: When ANY user asks for charts/visualizations:",
-        "1. Data Analyst: Query the data with SQL",
-        "2. Visualization Specialist: IMMEDIATELY execute Python code to create and save the file",
-        "3. Never just describe - always create actual files",
-        "VISUALIZATION REQUESTS = MANDATORY FILE CREATION",
-        "Examples of requests that REQUIRE file creation:",
-        "- 'Create a chart' → MUST save a file",
-        "- 'Show me a pie chart' → MUST save a file", 
-        "- 'Make a visualization' → MUST save a file",
-        "The Visualization Specialist must use Python tools to execute actual code.",
-        "ALWAYS query the actual data table using SQL before providing any analysis.",
-        "Provide concrete insights based on actual data, not hypothetical scenarios.",
+        "You have access to a 'data' table containing ticket/support request data.",
+        "IMPORTANT: Agents should run 'DESCRIBE data' first to get current schema and row count before analysis.",
+
+        "REQUEST TYPE DETECTION:",
+        "INSIGHTS/ANALYSIS REQUESTS: 'insights', 'analysis', 'what can you tell me', 'patterns', 'trends', 'summary' → Data Analyst provides text-based insights",
+        "DASHBOARD REQUESTS: 'dashboard', 'comprehensive dashboard', 'overview dashboard', 'create dashboard' → Create HTML dashboard",
+        "SINGLE CHART REQUESTS: 'chart', 'graph', 'plot', 'show me [specific metric] chart' → Create single visualization",
+
+        "WORKFLOW FOR INSIGHTS/ANALYSIS MODE:",
+        "1. Data Analyst: Query relevant datasets and provide comprehensive text-based insights",
+        "2. Include specific numbers, percentages, and key findings",
+        "3. NO visualization creation required - just provide insights in text format",
+
+        "WORKFLOW FOR DASHBOARD MODE:",
+        "1. Data Analyst: Query multiple related datasets (category breakdown, trends, status, etc.)",
+        "2. Visualization Specialist: Create comprehensive HTML dashboard with 3-4 charts using dashboard_templates.py",
+        "3. Include KPI cards, insights, and professional multi-chart layout",
+        "4. Save as HTML file with descriptive name like 'comprehensive_dashboard.html'",
+
+        "WORKFLOW FOR SINGLE CHART MODE:",
+        "1. Data Analyst: Query specific dataset for the requested metric",
+        "2. Visualization Specialist: Create focused matplotlib visualization",
+        "3. Include analysis insights with specific data points",
+        "4. Save as PNG file with descriptive name",
+
+        "IMPORTANT RULES:",
+        "- For insight/analysis questions: ONLY Data Analyst responds with text insights, NO files created",
+        "- For dashboard requests: Create HTML dashboards with multiple charts",
+        "- For chart requests: Create single PNG visualizations",
+        "- Always query actual data first before providing insights or creating visualizations",
+        "- Provide concrete insights with specific numbers and percentages",
+
+        "EXAMPLES:",
+        "Insights: 'What insights can you provide?' → Data Analyst text response only",
+        "Dashboard: 'Create a dashboard' → HTML with 3-4 charts",
+        "Single: 'Show me a pie chart of categories' → PNG pie chart",
+
         "Focus on time-based trends using the Created Time column for monthly/daily analysis.",
-        "The UI will automatically display created visualizations to users.",
     ],
     enable_user_memories=True,
     enable_session_summaries=True,
@@ -222,7 +319,7 @@ app = agent_os.get_app()
 # Add CORS middleware
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000", "http://127.0.0.1:3000"],
+    allow_origins=["http://localhost:3000", "http://127.0.0.1:3000","http://localhost:3001", "http://127.0.0.1:3001"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

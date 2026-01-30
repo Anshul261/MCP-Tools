@@ -35,3 +35,4 @@ output.txt
 *.txt
 *.json
 *.yaml
+.data_initialized

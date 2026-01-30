@@ -31,6 +31,7 @@ interface Message {
   visualizations?: Visualization[]
   agentUsed?: string
   steps?: AnalysisStep[]
+  visualizationMode?: 'dashboard' | 'single_chart' | null
 }
 
 interface ChatAreaProps {
@@ -70,7 +71,8 @@ Start by typing your question below.`,
 
   const handleShowRecentVisualizations = async () => {
     try {
-      const response = await fetch('http://localhost:7777/api/visualizations')
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:7777'
+      const response = await fetch(`${apiUrl}/visualizations`)
       if (response.ok) {
         const data = await response.json()
         if (data.visualizations && data.visualizations.length > 0) {
@@ -115,7 +117,8 @@ Start by typing your question below.`,
 
   const handleForceVisualization = async () => {
     try {
-      const response = await fetch('http://localhost:7777/api/force-visualization', {
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:7777'
+      const response = await fetch(`${apiUrl}/force-visualization`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ type: 'pie', query: 'SELECT Category, COUNT(*) as count FROM data GROUP BY Category' })
@@ -124,7 +127,7 @@ Start by typing your question below.`,
       if (response.ok) {
         // Wait a moment then fetch latest visualizations
         setTimeout(async () => {
-          const vizResponse = await fetch('http://localhost:7777/api/visualizations')
+          const vizResponse = await fetch(`${apiUrl}/visualizations`)
           if (vizResponse.ok) {
             const data = await vizResponse.json()
             const vizMessage: Message = {
@@ -143,14 +146,35 @@ Start by typing your question below.`,
     }
   }
 
+  const detectVisualizationMode = (messageText: string): 'dashboard' | 'single_chart' | null => {
+    const text = messageText.toLowerCase()
+
+    // Dashboard mode keywords
+    const dashboardKeywords = ['dashboard', 'comprehensive analysis', 'overview', 'complete view', 'full analysis', 'multiple charts', 'comprehensive', 'complete']
+    const isDashboard = dashboardKeywords.some(keyword => text.includes(keyword))
+
+    if (isDashboard) return 'dashboard'
+
+    // Single chart mode keywords
+    const singleChartKeywords = ['chart', 'graph', 'plot', 'show me', 'create a']
+    const isSingleChart = singleChartKeywords.some(keyword => text.includes(keyword))
+
+    if (isSingleChart) return 'single_chart'
+
+    return null
+  }
+
   const handleSend = async () => {
     if (!message.trim() || isLoading) return
+
+    const detectedMode = detectVisualizationMode(message)
 
     const userMessage: Message = {
       id: Date.now(),
       content: message,
       isUser: true,
       timestamp: new Date().toLocaleTimeString(),
+      visualizationMode: detectedMode,
     }
 
     setMessages(prev => [...prev, userMessage])
@@ -166,7 +190,8 @@ Start by typing your question below.`,
       formData.append('stream', 'true')
       formData.append('monitor', 'true')
 
-      const response = await fetch("http://localhost:7777/teams/data-analysis-team/runs", {
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:7777'
+      const response = await fetch(`${apiUrl}/teams/data-analysis-team/runs`, {
         method: "POST",
         body: formData,
       })
@@ -190,6 +215,7 @@ Start by typing your question below.`,
           isUser: false,
           timestamp: new Date().toLocaleTimeString(),
           agentUsed: "Data Analysis Team",
+          visualizationMode: detectedMode,
         }
         setMessages(prev => [...prev, initialAiMessage])
 
@@ -266,9 +292,13 @@ Start by typing your question below.`,
             }
           }
 
-          // When streaming is complete, add steps to the final message and check for visualizations
+          // When streaming is complete, add steps to the final message and check for visualizations only if needed
           setTimeout(async () => {
-            const newViz = await find_new_visualizations_after_message()
+            let newViz: Visualization[] = []
+            // Only check for visualizations if the user requested them
+            if (detectedMode) {
+              newViz = await find_new_visualizations_after_message()
+            }
             setMessages(prev => prev.map(msg =>
               msg.id === aiMessageId
                 ? { ...msg, steps: [...currentSteps], visualizations: newViz }
@@ -276,12 +306,15 @@ Start by typing your question below.`,
             ))
           }, 2000)
 
-          // Additional fallback: if response mentions creating visualizations, force check
-          if (accumulatedContent.toLowerCase().includes('created') ||
-              accumulatedContent.toLowerCase().includes('saved') ||
-              accumulatedContent.toLowerCase().includes('chart') ||
-              accumulatedContent.toLowerCase().includes('visualization') ||
-              accumulatedContent.toLowerCase().includes('.png')) {
+          // Additional fallback: only trigger on specific file creation indicators AND if no visualizations detected yet
+          const hasFileCreationIndicators = accumulatedContent.toLowerCase().includes('saved to output/') ||
+              accumulatedContent.toLowerCase().includes('created and saved') ||
+              accumulatedContent.toLowerCase().includes('.png to output/') ||
+              accumulatedContent.toLowerCase().includes('.html to output/') ||
+              accumulatedContent.toLowerCase().includes('file saved to') ||
+              accumulatedContent.toLowerCase().includes('saved the file')
+
+          if (hasFileCreationIndicators) {
             setTimeout(async () => {
               const additionalViz = await find_new_visualizations_after_message()
               if (additionalViz.length > 0) {
@@ -311,23 +344,25 @@ Start by typing your question below.`,
         }
         setMessages(prev => [...prev, aiMessage])
 
-        // Also check for visualizations in non-streaming mode
-        setTimeout(async () => {
-          const newViz = await find_new_visualizations_after_message()
-          if (newViz.length > 0) {
-            setMessages(prev => prev.map(msg =>
-              msg.id === aiMessageId
-                ? { ...msg, visualizations: newViz }
-                : msg
-            ))
-          }
-        }, 2000)
+        // Also check for visualizations in non-streaming mode only if visualizations were requested
+        if (detectedMode) {
+          setTimeout(async () => {
+            const newViz = await find_new_visualizations_after_message()
+            if (newViz.length > 0) {
+              setMessages(prev => prev.map(msg =>
+                msg.id === aiMessageId
+                  ? { ...msg, visualizations: newViz }
+                  : msg
+              ))
+            }
+          }, 2000)
+        }
       }
     } catch (error) {
       console.error("Error sending message:", error)
       const errorMessage: Message = {
         id: Date.now() + 1,
-        content: "Sorry, I'm having trouble connecting to the Data Analysis Team. Please make sure the AgentOS server is running on port 7777.",
+        content: "Sorry, I'm having trouble connecting to the Data Analysis Team. Please make sure the AgentOS server is running.",
         isUser: false,
         timestamp: new Date().toLocaleTimeString(),
         agentUsed: "System Error"
@@ -340,7 +375,8 @@ Start by typing your question below.`,
 
   const find_new_visualizations_after_message = async (): Promise<Visualization[]> => {
     try {
-      const response = await fetch('http://localhost:7777/api/visualizations')
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:7777'
+      const response = await fetch(`${apiUrl}/visualizations`)
       if (response.ok) {
         const data = await response.json()
         // Get visualizations from the last 5 minutes (300 seconds)
@@ -403,6 +439,7 @@ Start by typing your question below.`,
             visualizations={msg.visualizations}
             agentUsed={msg.agentUsed}
             steps={msg.steps}
+            visualizationMode={msg.visualizationMode}
           />
         ))}
         {isLoading && (
