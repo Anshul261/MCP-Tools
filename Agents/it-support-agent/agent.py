@@ -361,6 +361,7 @@ it_support_team = Team(
         "If the user provides their name and issue details in one message, delegate immediately with all details.",
         "Only ask for missing information if not provided by the user.",
     ],
+    pre_hooks=[prompt_injection_guardrail],
     enable_agentic_memory=True,
     enable_user_memories=True,
     stream=True,
