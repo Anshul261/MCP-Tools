@@ -1,0 +1,62 @@
+name: Deploy IT Support Agent
+
+on:
+  push:
+    branches: [master]
+    paths:
+      - "Agents/it-support-agent/**"
+      - "pyproject.toml"
+      - "uv.lock"
+
+env:
+  REGISTRY: itagentcr.azurecr.io
+  RESOURCE_GROUP: it-agent-rg
+  ENVIRONMENT: it-agent-env
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Login to Azure
+        uses: azure/login@v2
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+
+      - name: Login to ACR
+        run: az acr login -n itagentcr
+
+      - name: Build & push backend
+        run: |
+          docker build \
+            -f Agents/it-support-agent/Dockerfile \
+            -t ${{ env.REGISTRY }}/it-agent-backend:${{ github.sha }} \
+            -t ${{ env.REGISTRY }}/it-agent-backend:latest \
+            .
+          docker push ${{ env.REGISTRY }}/it-agent-backend --all-tags
+
+      - name: Build & push frontend
+        run: |
+          docker build \
+            -t ${{ env.REGISTRY }}/it-agent-frontend:${{ github.sha }} \
+            -t ${{ env.REGISTRY }}/it-agent-frontend:latest \
+            Agents/it-support-agent/agent-ui
+          docker push ${{ env.REGISTRY }}/it-agent-frontend --all-tags
+
+      - name: Deploy backend
+        uses: azure/container-apps-deploy-action@v1
+        with:
+          resourceGroup: ${{ env.RESOURCE_GROUP }}
+          containerAppName: it-agent-backend
+          containerAppEnvironment: ${{ env.ENVIRONMENT }}
+          imageToDeploy: ${{ env.REGISTRY }}/it-agent-backend:${{ github.sha }}
+
+      - name: Deploy frontend
+        uses: azure/container-apps-deploy-action@v1
+        with:
+          resourceGroup: ${{ env.RESOURCE_GROUP }}
+          containerAppName: it-agent-frontend
+          containerAppEnvironment: ${{ env.ENVIRONMENT }}
+          imageToDeploy: ${{ env.REGISTRY }}/it-agent-frontend:${{ github.sha }}
