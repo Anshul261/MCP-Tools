@@ -1,8 +1,9 @@
 """
-Simple AgentOS with File Upload
-- Upload documents (PDF, TXT, DOCX, etc.)
-- Ask questions about uploaded documents
-- Or ask general questions using LLM knowledge
+AgentOS with File Upload and Project-based RAG
+- Upload documents (PDF, TXT, DOCX, etc.) per-message or per-project
+- Projects: upload files as a knowledge source, then ask questions (AGNO Knowledge + PgVector)
+- Per-user project isolation
+- General Q&A with team of agents
 
 Usage:
 # Ask question with uploaded file
@@ -10,13 +11,27 @@ curl -X POST "http://localhost:7777/agents/doc-agent/runs" \
   -F "message=What is this document about?" \
   -F "files=@document.pdf"
 
-# Ask general question without file
-curl -X POST "http://localhost:7777/agents/doc-agent/runs" \
-  -F "message=What is Python?"
+# Create a project
+curl -X POST "http://localhost:7777/projects" \
+  -H "Content-Type: application/json" \
+  -d '{"user_id":"user1","name":"My Project","description":"Research docs"}'
+
+# Upload files to project
+curl -X POST "http://localhost:7777/projects/{id}/files" -F "files=@doc.pdf"
+
+# Query project knowledge
+curl -X POST "http://localhost:7777/projects/{id}/query" \
+  -F "message=Summarize the key findings"
 """
 
+import asyncio
+import json
 import os
+import sqlite3
+import tempfile
+import uuid
 from io import BytesIO
+from pathlib import Path
 from typing import Optional, Sequence
 
 import PyPDF2
@@ -26,12 +41,17 @@ load_dotenv()
 
 from agno.agent import Agent
 from agno.db.sqlite import SqliteDb
+from agno.knowledge.embedder.ollama import OllamaEmbedder
+from agno.knowledge.knowledge import Knowledge
+from agno.knowledge.reader.pdf_reader import PDFReader
 from agno.media import File
 from agno.models.azure import AzureOpenAI
 from agno.os import AgentOS
+from agno.team import Team
 from agno.tools import Toolkit
 from agno.tools.duckduckgo import DuckDuckGoTools
-from agno.team import Team
+from agno.vectordb.pgvector import PgVector, SearchType
+
 # ============================================================================
 # Document Processing Tool
 # ============================================================================
@@ -187,6 +207,81 @@ db = SqliteDb(
 )
 
 # ============================================================================
+# Project Database Setup (SQLite for metadata, PgVector for embeddings)
+# ============================================================================
+
+PROJECTS_DB = "agent_sessions.db"
+PGVECTOR_DB_URL = os.getenv(
+    "PGVECTOR_DB_URL",
+    "postgresql+psycopg://postgres:postgres@localhost:5432/rag_db",
+)
+OLLAMA_HOST = os.getenv("OLLAMA_HOST", "http://localhost:11434")
+EMBEDDING_MODEL = os.getenv("EMBEDDING_MODEL", "nomic-embed-text-v2-moe")
+EMBEDDING_DIMENSIONS = int(os.getenv("EMBEDDING_DIMENSIONS", "768"))
+
+
+def init_project_tables():
+    """Create project metadata tables in SQLite."""
+    conn = sqlite3.connect(PROJECTS_DB)
+    conn.execute("PRAGMA foreign_keys = ON")
+    conn.executescript("""
+        CREATE TABLE IF NOT EXISTS projects (
+            id TEXT PRIMARY KEY,
+            user_id TEXT NOT NULL,
+            name TEXT NOT NULL,
+            description TEXT DEFAULT '',
+            created_at TEXT DEFAULT (datetime('now'))
+        );
+        CREATE INDEX IF NOT EXISTS idx_projects_user ON projects(user_id);
+
+        CREATE TABLE IF NOT EXISTS project_files (
+            id TEXT PRIMARY KEY,
+            project_id TEXT NOT NULL,
+            filename TEXT NOT NULL,
+            file_type TEXT DEFAULT '',
+            size INTEGER DEFAULT 0,
+            created_at TEXT DEFAULT (datetime('now')),
+            FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE
+        );
+    """)
+    conn.close()
+
+
+init_project_tables()
+
+
+def get_project_knowledge(project_id: str) -> Knowledge:
+    """Create an AGNO Knowledge object backed by PgVector for a specific project."""
+    return Knowledge(
+        vector_db=PgVector(
+            table_name=f"project_{project_id.replace('-', '_')}",
+            db_url=PGVECTOR_DB_URL,
+            search_type=SearchType.hybrid,
+            embedder=OllamaEmbedder(
+                id=EMBEDDING_MODEL,
+                dimensions=EMBEDDING_DIMENSIONS,
+                host=OLLAMA_HOST,
+            ),
+        ),
+    )
+
+
+def extract_text_from_bytes(content: bytes, filename: str) -> str:
+    """Extract text from file bytes (PDF or plain text)."""
+    is_pdf = filename.lower().endswith(".pdf")
+    if is_pdf:
+        pdf_reader = PyPDF2.PdfReader(BytesIO(content))
+        parts = []
+        for page in pdf_reader.pages:
+            text = page.extract_text()
+            if text and text.strip():
+                parts.append(text)
+        return "\n\n".join(parts) if parts else ""
+    else:
+        return content.decode("utf-8", errors="ignore")
+
+
+# ============================================================================
 # LLM Setup
 # ============================================================================
 
@@ -241,7 +336,7 @@ duckduckgo_agent = Agent(
         "You can use the agentic memory to remember the memory of the agent and use that information to answer questions.",
         "If the user asks a question that is not related to the documents or the web, you can use the session summaries to remember the summary of the session and use that information to answer questions.",
         "If the user asks a question that is not related to the documents or the web, you can use the agentic memory to remember the memory of the agent and use that information to answer questions.",
-        "If the user asks a questions that is not related to the document or the web asnwer it to the best of your knowledge, say I do no know if you can not answer it."
+        "If the user asks a questions that is not related to the document or the web asnwer it to the best of your knowledge, say I do no know if you can not answer it.",
     ],
     db=db,
     enable_user_memories=True,
@@ -252,7 +347,8 @@ duckduckgo_agent = Agent(
     send_media_to_model=False,
     store_media=True,
     markdown=True,
-    debug_mode=True)
+    debug_mode=True,
+)
 
 # ============================================================================
 # Team Setup
@@ -274,7 +370,7 @@ general_team = Team(
         "You can use the agentic memory to remember the memory of the agent and use that information to answer questions.",
         "If the user asks a question that is not related to the documents or the web, you can use the session summaries to remember the summary of the session and use that information to answer questions.",
         "If the user asks a question that is not related to the documents or the web, you can use the agentic memory to remember the memory of the agent and use that information to answer questions.",
-        "If the user asks a questions that is not related to the document or the web asnwer it to the best of your knowledge, say I do no know if you can not answer it."
+        "If the user asks a questions that is not related to the document or the web asnwer it to the best of your knowledge, say I do no know if you can not answer it.",
     ],
     db=db,
     enable_user_memories=True,
@@ -285,7 +381,7 @@ general_team = Team(
     send_media_to_model=False,  # Don't send files directly to coordinator model
     store_media=True,
     markdown=True,
-    debug_mode=True
+    debug_mode=True,
 )
 
 # ============================================================================
@@ -305,10 +401,17 @@ app = agent_os.get_app()
 # Custom Endpoints
 # ============================================================================
 
-from fastapi import APIRouter
-from fastapi.responses import JSONResponse
+from fastapi import APIRouter, Form, Query, UploadFile
+from fastapi import File as FastAPIFile
+from fastapi.responses import JSONResponse, StreamingResponse
+from pydantic import BaseModel
 
 custom_router = APIRouter()
+
+
+# ============================================================================
+# Health & Info Endpoints
+# ============================================================================
 
 
 @custom_router.get("/health")
@@ -317,9 +420,9 @@ async def health_check():
     return JSONResponse(
         content={
             "status": "healthy",
-            "service": "Simple Document Q&A",
-            "agents": ["doc-agent"],
-            "database": "SQLite (agent_sessions.db)",
+            "service": "Document Q&A with Projects",
+            "agents": ["doc-agent", "duckduckgo-agent"],
+            "database": "SQLite (agent_sessions.db) + PgVector",
             "session_storage": "enabled",
         }
     )
@@ -330,39 +433,342 @@ async def api_info():
     """API information."""
     return JSONResponse(
         content={
-            "name": "Simple Document Q&A API",
-            "description": "Upload documents and ask questions with session storage",
-            "database": {
-                "type": "SQLite",
-                "file": "agent_sessions.db",
-                "features": [
-                    "Session persistence",
-                    "Conversation history",
-                    "User memories",
-                    "Context retention (10 messages)",
-                ],
-            },
+            "name": "Document Q&A API with Projects",
+            "description": "Upload documents, create projects with knowledge bases, and ask questions",
             "endpoints": {
                 "agent_runs": "POST /agents/doc-agent/runs",
-                "sessions_list": "GET /sessions",
-                "session_detail": "GET /sessions/{session_id}",
-                "session_runs": "GET /sessions/{session_id}/runs",
+                "projects_create": "POST /projects",
+                "projects_list": "GET /projects?user_id=...",
+                "projects_get": "GET /projects/{id}",
+                "projects_delete": "DELETE /projects/{id}",
+                "projects_upload": "POST /projects/{id}/files",
+                "projects_remove_file": "DELETE /projects/{id}/files/{file_id}",
+                "projects_query": "POST /projects/{id}/query",
                 "health": "GET /health",
-                "info": "GET /info",
                 "docs": "GET /docs",
             },
-            "examples": [
+        }
+    )
+
+
+# ============================================================================
+# Project CRUD Endpoints
+# ============================================================================
+
+
+class CreateProjectRequest(BaseModel):
+    user_id: str
+    name: str
+    description: str = ""
+
+
+@custom_router.post("/projects")
+async def create_project(req: CreateProjectRequest):
+    """Create a new project."""
+    project_id = str(uuid.uuid4())
+    conn = sqlite3.connect(PROJECTS_DB)
+    conn.execute("PRAGMA foreign_keys = ON")
+    conn.execute(
+        "INSERT INTO projects (id, user_id, name, description) VALUES (?, ?, ?, ?)",
+        (project_id, req.user_id, req.name, req.description),
+    )
+    conn.commit()
+    conn.close()
+    return JSONResponse(
+        content={
+            "id": project_id,
+            "user_id": req.user_id,
+            "name": req.name,
+            "description": req.description,
+        }
+    )
+
+
+@custom_router.get("/projects")
+async def list_projects(user_id: str = Query(...)):
+    """List all projects for a user."""
+    conn = sqlite3.connect(PROJECTS_DB)
+    conn.row_factory = sqlite3.Row
+    rows = conn.execute(
+        "SELECT * FROM projects WHERE user_id = ? ORDER BY created_at DESC",
+        (user_id,),
+    ).fetchall()
+
+    projects = []
+    for row in rows:
+        file_count = conn.execute(
+            "SELECT COUNT(*) FROM project_files WHERE project_id = ?",
+            (row["id"],),
+        ).fetchone()[0]
+        projects.append(
+            {
+                "id": row["id"],
+                "user_id": row["user_id"],
+                "name": row["name"],
+                "description": row["description"],
+                "created_at": row["created_at"],
+                "file_count": file_count,
+            }
+        )
+    conn.close()
+    return JSONResponse(content=projects)
+
+
+@custom_router.get("/projects/{project_id}")
+async def get_project(project_id: str):
+    """Get project details with file list."""
+    conn = sqlite3.connect(PROJECTS_DB)
+    conn.row_factory = sqlite3.Row
+    project = conn.execute(
+        "SELECT * FROM projects WHERE id = ?", (project_id,)
+    ).fetchone()
+    if not project:
+        conn.close()
+        return JSONResponse(status_code=404, content={"error": "Project not found"})
+
+    files = conn.execute(
+        "SELECT * FROM project_files WHERE project_id = ? ORDER BY created_at DESC",
+        (project_id,),
+    ).fetchall()
+    conn.close()
+
+    return JSONResponse(
+        content={
+            "id": project["id"],
+            "user_id": project["user_id"],
+            "name": project["name"],
+            "description": project["description"],
+            "created_at": project["created_at"],
+            "files": [
                 {
-                    "with_file": 'curl -X POST "http://localhost:7777/agents/doc-agent/runs" -F "message=Summarize this" -F "files=@doc.pdf" -F "session_id=user123"'
-                },
-                {
-                    "without_file": 'curl -X POST "http://localhost:7777/agents/doc-agent/runs" -F "message=What is AI?" -F "session_id=user123"'
-                },
-                {"list_sessions": 'curl -X GET "http://localhost:7777/sessions"'},
-                {"get_session": 'curl -X GET "http://localhost:7777/sessions/user123"'},
+                    "id": f["id"],
+                    "filename": f["filename"],
+                    "file_type": f["file_type"],
+                    "size": f["size"],
+                    "created_at": f["created_at"],
+                }
+                for f in files
             ],
         }
     )
+
+
+@custom_router.delete("/projects/{project_id}")
+async def delete_project(project_id: str):
+    """Delete a project and its PgVector table."""
+    conn = sqlite3.connect(PROJECTS_DB)
+    conn.execute("PRAGMA foreign_keys = ON")
+    conn.execute("DELETE FROM projects WHERE id = ?", (project_id,))
+    conn.commit()
+    conn.close()
+
+    # Drop the PgVector table for this project
+    try:
+        table_name = f"project_{project_id.replace('-', '_')}"
+        from sqlalchemy import create_engine, text
+
+        engine = create_engine(PGVECTOR_DB_URL)
+        with engine.connect() as pg_conn:
+            pg_conn.execute(text(f'DROP TABLE IF EXISTS "{table_name}"'))
+            pg_conn.commit()
+        engine.dispose()
+    except Exception as e:
+        print(f"[WARN] Failed to drop PgVector table: {e}")
+
+    return JSONResponse(content={"status": "deleted"})
+
+
+# ============================================================================
+# Project File Upload & Management
+# ============================================================================
+
+
+@custom_router.post("/projects/{project_id}/files")
+async def upload_project_files(
+    project_id: str,
+    files: list[UploadFile] = FastAPIFile(...),
+):
+    """Upload files to a project and ingest into the knowledge base."""
+    # Verify project exists
+    conn = sqlite3.connect(PROJECTS_DB)
+    conn.row_factory = sqlite3.Row
+    project = conn.execute(
+        "SELECT id FROM projects WHERE id = ?", (project_id,)
+    ).fetchone()
+    if not project:
+        conn.close()
+        return JSONResponse(status_code=404, content={"error": "Project not found"})
+
+    knowledge = get_project_knowledge(project_id)
+    uploaded = []
+    ingested = 0
+
+    for upload_file in files:
+        content = await upload_file.read()
+        if not content:
+            continue
+
+        file_id = str(uuid.uuid4())
+        filename = upload_file.filename or f"file_{file_id}"
+        file_type = upload_file.content_type or ""
+
+        # Save metadata to SQLite
+        conn.execute(
+            "INSERT INTO project_files (id, project_id, filename, file_type, size) VALUES (?, ?, ?, ?, ?)",
+            (file_id, project_id, filename, file_type, len(content)),
+        )
+
+        # Save to temp file and ingest via knowledge.insert()
+        suffix = Path(filename).suffix or ".txt"
+        try:
+            with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as tmp:
+                tmp.write(content)
+                tmp_path = tmp.name
+
+            is_pdf = suffix.lower() == ".pdf"
+            if is_pdf:
+                await knowledge.add_content_async(
+                    path=tmp_path, name=filename, reader=PDFReader()
+                )
+            else:
+                await knowledge.add_content_async(path=tmp_path, name=filename)
+
+            ingested += 1
+            print(
+                f"[PROJECT] Ingested {filename} ({len(content)} bytes) into knowledge base"
+            )
+        except Exception as e:
+            print(f"[PROJECT] Error ingesting {filename}: {e}")
+            import traceback
+
+            traceback.print_exc()
+        finally:
+            try:
+                os.unlink(tmp_path)
+            except OSError:
+                pass
+
+        uploaded.append(
+            {
+                "id": file_id,
+                "filename": filename,
+                "file_type": file_type,
+                "size": len(content),
+            }
+        )
+
+    conn.commit()
+    conn.close()
+
+    print(
+        f"[PROJECT] Uploaded {len(uploaded)} files, ingested {ingested} into PgVector for project {project_id}"
+    )
+    return JSONResponse(content={"uploaded": uploaded, "ingested": ingested})
+
+
+@custom_router.delete("/projects/{project_id}/files/{file_id}")
+async def delete_project_file(project_id: str, file_id: str):
+    """Remove a file from a project."""
+    conn = sqlite3.connect(PROJECTS_DB)
+    conn.execute("PRAGMA foreign_keys = ON")
+    conn.execute(
+        "DELETE FROM project_files WHERE id = ? AND project_id = ?",
+        (file_id, project_id),
+    )
+    conn.commit()
+    conn.close()
+    return JSONResponse(content={"status": "deleted"})
+
+
+# ============================================================================
+# Project Query Endpoint (Agentic RAG via AGNO Knowledge)
+# ============================================================================
+
+
+@custom_router.post("/projects/{project_id}/query")
+async def query_project(
+    project_id: str,
+    message: str = Form(...),
+    session_id: str = Form(None),
+    stream: str = Form("true"),
+):
+    """Query a project's knowledge base using agentic RAG."""
+    # Verify project exists
+    conn = sqlite3.connect(PROJECTS_DB)
+    conn.row_factory = sqlite3.Row
+    project = conn.execute(
+        "SELECT * FROM projects WHERE id = ?", (project_id,)
+    ).fetchone()
+    if not project:
+        conn.close()
+        return JSONResponse(status_code=404, content={"error": "Project not found"})
+    conn.close()
+
+    knowledge = get_project_knowledge(project_id)
+
+    # Create a project-specific agent with this knowledge base
+    project_agent = Agent(
+        id=f"project-agent-{project_id}",
+        name=f"Project Agent ({project['name']})",
+        model=llm,
+        knowledge=knowledge,
+        search_knowledge=True,
+        instructions=[
+            f"You are answering questions about the project '{project['name']}'.",
+            "Search the knowledge base to find relevant information before answering.",
+            "Reference specific parts of the documents when possible.",
+            "If the knowledge base doesn't contain relevant information, say so clearly.",
+            "Be concise and helpful.",
+        ],
+        db=db,
+        add_history_to_context=True,
+        num_history_runs=10,
+        markdown=True,
+    )
+
+    if stream.lower() == "true":
+
+        async def event_stream():
+            try:
+                run_response = project_agent.arun(
+                    message,
+                    session_id=session_id,
+                    stream=True,
+                )
+                async for chunk in run_response:
+                    if hasattr(chunk, "content") and chunk.content:
+                        event_data = json.dumps({"content": chunk.content})
+                        yield f"event: RunContent\ndata: {event_data}\n\n"
+                    if hasattr(chunk, "event") and chunk.event:
+                        event_data = json.dumps({"event": str(chunk.event)})
+                        yield f"event: RunEvent\ndata: {event_data}\n\n"
+            except Exception as e:
+                error_data = json.dumps({"error": str(e)})
+                yield f"event: RunError\ndata: {error_data}\n\n"
+                print(f"[PROJECT QUERY] Error: {e}")
+                import traceback
+
+                traceback.print_exc()
+
+        return StreamingResponse(
+            event_stream(),
+            media_type="text/event-stream",
+            headers={
+                "Cache-Control": "no-cache",
+                "Connection": "keep-alive",
+                "X-Accel-Buffering": "no",
+            },
+        )
+    else:
+        run_response = project_agent.run(message, session_id=session_id)
+        return JSONResponse(
+            content={
+                "content": run_response.content
+                if hasattr(run_response, "content")
+                else str(run_response),
+                "session_id": session_id,
+            }
+        )
 
 
 app.include_router(custom_router)

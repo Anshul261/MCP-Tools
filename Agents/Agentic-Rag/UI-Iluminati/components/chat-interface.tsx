@@ -13,9 +13,19 @@ import {
     listTeams,
     getDefaultTeam,
     API_BASE_URL,
+    getUserId,
+    listProjects,
+    createProject as apiCreateProject,
+    getProject as apiGetProject,
+    deleteProject as apiDeleteProject,
+    uploadProjectFiles,
+    deleteProjectFile,
+    queryProject,
     type Session,
     type SessionRun,
     type TeamInfo,
+    type ProjectInfo,
+    type ProjectFileInfo,
 } from "@/lib/api";
 import {
     Send,
@@ -58,7 +68,7 @@ interface Project {
     id: string;
     name: string;
     description: string;
-    chatCount: number;
+    file_count: number;
     files: UploadedFile[];
 }
 
@@ -90,29 +100,9 @@ export function ChatInterface() {
     const [selectedProject, setSelectedProject] = useState<Project | null>(
         null,
     );
-    const [projects, setProjects] = useState<Project[]>([
-        {
-            id: "1",
-            name: "E-commerce App",
-            description: "Building an online store",
-            chatCount: 5,
-            files: [],
-        },
-        {
-            id: "2",
-            name: "Dashboard UI",
-            description: "Admin panel design",
-            chatCount: 3,
-            files: [],
-        },
-        {
-            id: "3",
-            name: "API Documentation",
-            description: "REST API specs",
-            chatCount: 2,
-            files: [],
-        },
-    ]);
+    const [projects, setProjects] = useState<Project[]>([]);
+    const [userId] = useState<string>(() => getUserId());
+    const [uploadingFiles, setUploadingFiles] = useState(false);
 
     const [sessions, setSessions] = useState<Session[]>([]);
     const [loadingSessions, setLoadingSessions] = useState(false);
@@ -136,6 +126,56 @@ export function ChatInterface() {
         }
     }, [isDark]);
 
+    // Load projects from API
+    const loadProjects = async () => {
+        try {
+            const data = await listProjects(userId);
+            setProjects(
+                data.map((p) => ({
+                    id: p.id,
+                    name: p.name,
+                    description: p.description,
+                    file_count: p.file_count || 0,
+                    files: [],
+                })),
+            );
+        } catch (error) {
+            console.error("Failed to load projects:", error);
+        }
+    };
+
+    // Load project details (with file list)
+    const loadProjectDetails = async (projectId: string) => {
+        try {
+            const detail = await apiGetProject(projectId);
+            if (detail) {
+                const proj: Project = {
+                    id: detail.id,
+                    name: detail.name,
+                    description: detail.description,
+                    file_count: detail.files?.length || 0,
+                    files: (detail.files || []).map((f) => ({
+                        id: f.id,
+                        name: f.filename,
+                        size: f.size,
+                        type: f.file_type,
+                    })),
+                };
+                setSelectedProject(proj);
+                // Update in list too
+                setProjects((prev) =>
+                    prev.map((p) => (p.id === proj.id ? proj : p)),
+                );
+            }
+        } catch (error) {
+            console.error("Failed to load project details:", error);
+        }
+    };
+
+    useEffect(() => {
+        loadProjects();
+    }, [userId]);
+
     // Load teams on component mount
     useEffect(() => {
         const loadTeams = async () => {
@@ -145,7 +185,10 @@ export function ChatInterface() {
                 setAvailableTeams(teams);
                 if (teams.length > 0) {
                     setCurrentTeam(teams[0]);
-                    console.log("[UI] Loaded teams:", teams.map(t => t.name));
+                    console.log(
+                        "[UI] Loaded teams:",
+                        teams.map((t) => t.name),
+                    );
                     console.log("[UI] Default team:", teams[0].name);
                 }
             } catch (error) {
@@ -228,7 +271,12 @@ export function ChatInterface() {
         const newSessionId = await createSession(currentTeam.id);
         if (newSessionId) {
             setSessionId(newSessionId);
-            console.log("[UI] Created new session:", newSessionId, "for team:", currentTeam.name);
+            console.log(
+                "[UI] Created new session:",
+                newSessionId,
+                "for team:",
+                currentTeam.name,
+            );
             // Reload sessions list
             loadSessions();
         }
@@ -356,7 +404,11 @@ export function ChatInterface() {
                                         } else if (
                                             currentEvent === "ToolCallStarted"
                                         ) {
-                                            const agentName = data.agent?.name || data.agent?.id || currentTeam?.name || "Team";
+                                            const agentName =
+                                                data.agent?.name ||
+                                                data.agent?.id ||
+                                                currentTeam?.name ||
+                                                "Team";
                                             const step: AgentTraceStep = {
                                                 type: "tool_call",
                                                 title: `Using ${data.tool?.tool_name || "tool"}`,
@@ -381,7 +433,11 @@ export function ChatInterface() {
                                         } else if (
                                             currentEvent === "ToolCallCompleted"
                                         ) {
-                                            const agentName = data.agent?.name || data.agent?.id || currentTeam?.name || "Team";
+                                            const agentName =
+                                                data.agent?.name ||
+                                                data.agent?.id ||
+                                                currentTeam?.name ||
+                                                "Team";
                                             const step: AgentTraceStep = {
                                                 type: "tool_call",
                                                 title: `Completed ${data.tool?.tool_name || "tool"}`,
@@ -403,12 +459,15 @@ export function ChatInterface() {
                                         } else if (
                                             currentEvent === "RunStarted"
                                         ) {
-                                            const agentName = data.agent?.name || data.agent?.id || currentTeam?.name || "Team";
+                                            const agentName =
+                                                data.agent?.name ||
+                                                data.agent?.id ||
+                                                currentTeam?.name ||
+                                                "Team";
                                             const step: AgentTraceStep = {
                                                 type: "agent_start",
                                                 title: "Team started processing",
-                                                description:
-                                                    `${currentTeam?.name || "Team"} is analyzing your request`,
+                                                description: `${currentTeam?.name || "Team"} is analyzing your request`,
                                                 timestamp:
                                                     new Date().toLocaleTimeString(),
                                                 agent: agentName,
@@ -476,23 +535,107 @@ export function ChatInterface() {
                 setCurrentProgress("");
             }
         } else if (selectedProject) {
-            // Project mode - use mock response (or implement project-specific logic later)
-            setTimeout(() => {
-                const assistantMessage: Message = {
+            // Project mode - query project knowledge base via SSE
+            try {
+                const response = await queryProject(
+                    selectedProject.id,
+                    currentInput,
+                    sessionId,
+                );
+
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+
+                if (response.body) {
+                    const reader = response.body.getReader();
+                    const decoder = new TextDecoder();
+                    let accumulatedContent = "";
+                    let buffer = "";
+
+                    const aiMessageId = (Date.now() + 1).toString();
+                    setMessages((prev) => [
+                        ...prev,
+                        { id: aiMessageId, role: "assistant", content: "" },
+                    ]);
+
+                    try {
+                        while (true) {
+                            const { done, value } = await reader.read();
+                            if (done) break;
+
+                            buffer += decoder.decode(value, { stream: true });
+                            const lines = buffer.split("\n");
+                            buffer = lines.pop() || "";
+
+                            let currentEvent = "";
+                            for (const line of lines) {
+                                if (line.startsWith("event: ")) {
+                                    currentEvent = line.slice(7).trim();
+                                } else if (line.startsWith("data: ")) {
+                                    try {
+                                        const data = JSON.parse(line.slice(6));
+                                        if (
+                                            currentEvent === "RunContent" &&
+                                            data.content
+                                        ) {
+                                            accumulatedContent += data.content;
+                                            setMessages((prev) =>
+                                                prev.map((msg) =>
+                                                    msg.id === aiMessageId
+                                                        ? {
+                                                              ...msg,
+                                                              content:
+                                                                  accumulatedContent,
+                                                          }
+                                                        : msg,
+                                                ),
+                                            );
+                                        } else if (
+                                            currentEvent === "RunError" &&
+                                            data.error
+                                        ) {
+                                            accumulatedContent += `\n\nError: ${data.error}`;
+                                            setMessages((prev) =>
+                                                prev.map((msg) =>
+                                                    msg.id === aiMessageId
+                                                        ? {
+                                                              ...msg,
+                                                              content:
+                                                                  accumulatedContent,
+                                                          }
+                                                        : msg,
+                                                ),
+                                            );
+                                        }
+                                    } catch {
+                                        // skip parse errors
+                                    }
+                                }
+                            }
+                        }
+                    } finally {
+                        reader.releaseLock();
+                    }
+                }
+            } catch (error) {
+                console.error("Error querying project:", error);
+                const errorMessage: Message = {
                     id: (Date.now() + 1).toString(),
                     role: "assistant",
-                    content:
-                        "Project mode is not connected to the team yet. This is a mock response for project-specific queries.",
+                    content: `Error querying project: ${error instanceof Error ? error.message : "Unknown error"}`,
                 };
-                setMessages((prev) => [...prev, assistantMessage]);
+                setMessages((prev) => [...prev, errorMessage]);
+            } finally {
                 setIsLoading(false);
-            }, 1000);
+            }
         } else if (!currentTeam) {
             // No team available
             const errorMessage: Message = {
                 id: (Date.now() + 1).toString(),
                 role: "assistant",
-                content: "No team available. Please check if the API is running and has teams configured.",
+                content:
+                    "No team available. Please check if the API is running and has teams configured.",
             };
             setMessages((prev) => [...prev, errorMessage]);
             setIsLoading(false);
@@ -510,66 +653,113 @@ export function ChatInterface() {
         fileInputRef.current?.click();
     };
 
-    const handleCreateProject = () => {
+    const handleCreateProject = async () => {
         if (!newProjectName.trim()) return;
 
-        const newProject: Project = {
-            id: Date.now().toString(),
-            name: newProjectName,
-            description: newProjectDescription,
-            chatCount: 0,
-            files: [],
-        };
-
-        setProjects((prev) => [newProject, ...prev]);
+        const result = await apiCreateProject(
+            userId,
+            newProjectName,
+            newProjectDescription,
+        );
+        if (result) {
+            const newProject: Project = {
+                id: result.id,
+                name: result.name,
+                description: result.description,
+                file_count: 0,
+                files: [],
+            };
+            setProjects((prev) => [newProject, ...prev]);
+            setSelectedProject(newProject);
+        }
         setNewProjectName("");
         setNewProjectDescription("");
         setShowNewProjectModal(false);
-        setSelectedProject(newProject);
     };
 
-    const handleProjectFileUpload = (
+    const handleProjectFileUpload = async (
         e: React.ChangeEvent<HTMLInputElement>,
     ) => {
         if (!selectedProject || !e.target.files) return;
 
         const files = Array.from(e.target.files);
-        const uploadedFiles: UploadedFile[] = files.map((file) => ({
-            id: Date.now().toString() + Math.random(),
-            name: file.name,
-            size: file.size,
-            type: file.type,
-        }));
+        setUploadingFiles(true);
 
-        setProjects((prev) =>
-            prev.map((p) =>
-                p.id === selectedProject.id
-                    ? { ...p, files: [...p.files, ...uploadedFiles] }
-                    : p,
-            ),
-        );
+        try {
+            const result = await uploadProjectFiles(selectedProject.id, files);
+            if (result && result.uploaded) {
+                const newFiles: UploadedFile[] = result.uploaded.map((f) => ({
+                    id: f.id,
+                    name: f.filename,
+                    size: f.size,
+                    type: f.file_type,
+                }));
 
-        setSelectedProject((prev) =>
-            prev ? { ...prev, files: [...prev.files, ...uploadedFiles] } : null,
-        );
+                setSelectedProject((prev) =>
+                    prev
+                        ? {
+                              ...prev,
+                              files: [...prev.files, ...newFiles],
+                              file_count: prev.file_count + newFiles.length,
+                          }
+                        : null,
+                );
+                setProjects((prev) =>
+                    prev.map((p) =>
+                        p.id === selectedProject.id
+                            ? {
+                                  ...p,
+                                  files: [...p.files, ...newFiles],
+                                  file_count: p.file_count + newFiles.length,
+                              }
+                            : p,
+                    ),
+                );
+                console.log(
+                    `[UI] Uploaded ${result.uploaded.length} files, ingested ${result.ingested} into knowledge base`,
+                );
+            }
+        } catch (error) {
+            console.error("Failed to upload project files:", error);
+        } finally {
+            setUploadingFiles(false);
+        }
     };
 
-    const handleRemoveFile = (fileId: string) => {
+    const handleRemoveFile = async (fileId: string) => {
         if (!selectedProject) return;
+
+        await deleteProjectFile(selectedProject.id, fileId);
 
         setProjects((prev) =>
             prev.map((p) =>
                 p.id === selectedProject.id
-                    ? { ...p, files: p.files.filter((f) => f.id !== fileId) }
+                    ? {
+                          ...p,
+                          files: p.files.filter((f) => f.id !== fileId),
+                          file_count: Math.max(0, p.file_count - 1),
+                      }
                     : p,
             ),
         );
 
         setSelectedProject((prev) =>
             prev
-                ? { ...prev, files: prev.files.filter((f) => f.id !== fileId) }
+                ? {
+                      ...prev,
+                      files: prev.files.filter((f) => f.id !== fileId),
+                      file_count: Math.max(0, prev.file_count - 1),
+                  }
                 : null,
         );
+    };
+
+    const handleDeleteProject = async (projectId: string) => {
+        await apiDeleteProject(projectId);
+        setProjects((prev) => prev.filter((p) => p.id !== projectId));
+        if (selectedProject?.id === projectId) {
+            setSelectedProject(null);
+        }
     };
 
     const formatFileSize = (bytes: number) => {
@@ -729,41 +919,52 @@ export function ChatInterface() {
                                 </button>
 
                                 {projects.map((project) => (
-                                    <button
+                                    <div
                                         key={project.id}
-                                        onClick={() => {
-                                            setSelectedProject(project);
-                                            setActiveTab("chats");
-                                        }}
                                         className={cn(
-                                            "w-full text-left p-3 rounded-sm border transition-colors group",
+                                            "w-full text-left p-3 rounded-sm border transition-colors group relative",
                                             selectedProject?.id === project.id
                                                 ? "bg-sidebar-accent border-primary"
                                                 : "border-transparent hover:bg-sidebar-accent hover:border-sidebar-border",
                                         )}
                                     >
-                                        <div className="flex items-start gap-3">
-                                            <FolderOpen className="w-4 h-4 text-primary mt-0.5 shrink-0" />
-                                            <div className="flex-1 min-w-0">
-                                                <p className="font-serif text-sm font-medium text-sidebar-foreground truncate">
-                                                    {project.name}
-                                                </p>
-                                                <p className="font-mono text-xs text-muted-foreground truncate mt-1">
-                                                    {project.description}
-                                                </p>
-                                                <div className="flex items-center gap-3 mt-2">
-                                                    <span className="font-mono text-xs text-muted-foreground">
-                                                        {project.chatCount}{" "}
-                                                        chats
-                                                    </span>
-                                                    <span className="font-mono text-xs text-muted-foreground">
-                                                        {project.files.length}{" "}
-                                                        files
-                                                    </span>
+                                        <button
+                                            onClick={() => {
+                                                loadProjectDetails(project.id);
+                                                setMessages([]);
+                                                setActiveTab("chats");
+                                            }}
+                                            className="w-full text-left"
+                                        >
+                                            <div className="flex items-start gap-3">
+                                                <FolderOpen className="w-4 h-4 text-primary mt-0.5 shrink-0" />
+                                                <div className="flex-1 min-w-0">
+                                                    <p className="font-serif text-sm font-medium text-sidebar-foreground truncate">
+                                                        {project.name}
+                                                    </p>
+                                                    <p className="font-mono text-xs text-muted-foreground truncate mt-1">
+                                                        {project.description}
+                                                    </p>
+                                                    <div className="flex items-center gap-3 mt-2">
+                                                        <span className="font-mono text-xs text-muted-foreground">
+                                                            {project.file_count}{" "}
+                                                            files
+                                                        </span>
+                                                    </div>
                                                 </div>
                                             </div>
-                                        </div>
-                                    </button>
+                                        </button>
+                                        <button
+                                            onClick={(e) => {
+                                                e.stopPropagation();
+                                                handleDeleteProject(project.id);
+                                            }}
+                                            className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 p-1 hover:bg-destructive/10 rounded-sm transition-opacity"
+                                            aria-label="Delete project"
+                                        >
+                                            <Trash2 className="w-3 h-3 text-destructive" />
+                                        </button>
+                                    </div>
                                 ))}
                             </div>
                         </>
@@ -824,7 +1025,8 @@ export function ChatInterface() {
                                     </h1>
                                     {currentTeam && (
                                         <p className="font-mono text-xs text-muted-foreground">
-                                            {currentTeam.members?.length || 0} team members
+                                            {currentTeam.members?.length || 0}{" "}
+                                            team members
                                         </p>
                                     )}
                                 </div>
@@ -856,7 +1058,13 @@ export function ChatInterface() {
                                 <h3 className="font-mono text-xs uppercase tracking-widest text-muted-foreground">
                                     Project Files
                                 </h3>
-                                <label className="cursor-pointer">
+                                <label
+                                    className={cn(
+                                        "cursor-pointer",
+                                        uploadingFiles &&
+                                            "pointer-events-none opacity-50",
+                                    )}
+                                >
                                     <input
                                         type="file"
                                         multiple
@@ -866,7 +1074,9 @@ export function ChatInterface() {
                                     <div className="flex items-center gap-2 px-3 py-1.5 rounded-sm border border-border hover:bg-secondary transition-colors">
                                         <Upload className="w-3 h-3 text-primary" />
                                         <span className="font-mono text-xs uppercase tracking-wider text-primary">
-                                            Upload
+                                            {uploadingFiles
+                                                ? "Uploading..."
+                                                : "Upload"}
                                         </span>
                                     </div>
                                 </label>
@@ -1200,9 +1410,18 @@ export function ChatInterface() {
                                 <Button
                                     type="submit"
                                     size="sm"
-                                    disabled={!input.trim() || isLoading || loadingTeams || !currentTeam}
+                                    disabled={
+                                        !input.trim() ||
+                                        isLoading ||
+                                        loadingTeams ||
+                                        !currentTeam
+                                    }
                                     className="font-mono text-xs uppercase tracking-wider rounded-sm bg-primary hover:bg-primary/90 disabled:opacity-50"
-                                    title={!currentTeam ? "No team available" : undefined}
+                                    title={
+                                        !currentTeam
+                                            ? "No team available"
+                                            : undefined
+                                    }
                                 >
                                     <Send className="w-4 h-4" />
                                 </Button>
