@@ -1234,6 +1234,10 @@
     translate: var(--tw-translate-x) var(--tw-translate-y);
   }
 
+  .-rotate-90 {
+    rotate: -90deg;
+  }
+
   .rotate-45 {
     rotate: 45deg;
   }
@@ -2929,6 +2933,18 @@
   @media (hover: hover) {
     .hover\:bg-secondary:hover {
       background-color: var(--secondary);
+    }
+  }
+
+  @media (hover: hover) {
+    .hover\:bg-secondary\/50:hover {
+      background-color: var(--secondary);
+    }
+
+    @supports (color: color-mix(in lab, red, red)) {
+      .hover\:bg-secondary\/50:hover {
+        background-color: color-mix(in oklab, var(--secondary) 50%, transparent);
+      }
     }
   }
 

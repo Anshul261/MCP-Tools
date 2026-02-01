@@ -243,6 +243,16 @@ def init_project_tables():
             created_at TEXT DEFAULT (datetime('now')),
             FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE
         );
+
+        CREATE TABLE IF NOT EXISTS project_sessions (
+            session_id TEXT PRIMARY KEY,
+            project_id TEXT NOT NULL,
+            session_name TEXT DEFAULT '',
+            created_at TEXT DEFAULT (datetime('now')),
+            updated_at TEXT DEFAULT (datetime('now')),
+            FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE
+        );
+        CREATE INDEX IF NOT EXISTS idx_project_sessions_project ON project_sessions(project_id);
     """)
     conn.close()
 
@@ -681,6 +691,76 @@ async def delete_project_file(project_id: str, file_id: str):
 
 
 # ============================================================================
+# Project Session Endpoints
+# ============================================================================
+
+
+@custom_router.get("/projects/{project_id}/sessions")
+async def list_project_sessions(project_id: str):
+    """List all sessions for a project."""
+    conn = sqlite3.connect(PROJECTS_DB)
+    conn.row_factory = sqlite3.Row
+    rows = conn.execute(
+        "SELECT * FROM project_sessions WHERE project_id = ? ORDER BY updated_at DESC",
+        (project_id,),
+    ).fetchall()
+    conn.close()
+    return JSONResponse(
+        content=[
+            {
+                "session_id": r["session_id"],
+                "project_id": r["project_id"],
+                "session_name": r["session_name"],
+                "created_at": r["created_at"],
+                "updated_at": r["updated_at"],
+            }
+            for r in rows
+        ]
+    )
+
+
+@custom_router.get("/projects/{project_id}/sessions/{session_id}/runs")
+async def get_project_session_runs(project_id: str, session_id: str):
+    """Get all runs (messages) for a project session."""
+    # Use the AGNO session storage to fetch runs
+    try:
+        session_data = db.read(session_id=session_id)
+        if not session_data:
+            return JSONResponse(content=[])
+
+        runs = []
+        if hasattr(session_data, "runs") and session_data.runs:
+            for run in session_data.runs:
+                run_input = ""
+                run_content = ""
+                if hasattr(run, "message") and run.message:
+                    if hasattr(run.message, "content"):
+                        run_input = run.message.content or ""
+                    elif isinstance(run.message, str):
+                        run_input = run.message
+                if hasattr(run, "response") and run.response:
+                    if hasattr(run.response, "content"):
+                        run_content = run.response.content or ""
+                    elif isinstance(run.response, str):
+                        run_content = run.response
+                runs.append(
+                    {
+                        "run_id": getattr(run, "run_id", str(uuid.uuid4())),
+                        "run_input": run_input,
+                        "content": run_content,
+                        "created_at": getattr(run, "created_at", ""),
+                    }
+                )
+        return JSONResponse(content=runs)
+    except Exception as e:
+        print(f"[PROJECT SESSIONS] Error fetching runs: {e}")
+        import traceback
+
+        traceback.print_exc()
+        return JSONResponse(content=[])
+
+
+# ============================================================================
 # Project Query Endpoint (Agentic RAG via AGNO Knowledge)
 # ============================================================================
 
@@ -705,6 +785,27 @@ async def query_project(
     conn.close()
 
     knowledge = get_project_knowledge(project_id)
+
+    # Ensure session is linked to this project
+    if session_id:
+        s_conn = sqlite3.connect(PROJECTS_DB)
+        s_conn.execute("PRAGMA foreign_keys = ON")
+        existing = s_conn.execute(
+            "SELECT session_id FROM project_sessions WHERE session_id = ?",
+            (session_id,),
+        ).fetchone()
+        if not existing:
+            s_conn.execute(
+                "INSERT INTO project_sessions (session_id, project_id, session_name) VALUES (?, ?, ?)",
+                (session_id, project_id, f"Chat {session_id[-6:]}"),
+            )
+        else:
+            s_conn.execute(
+                "UPDATE project_sessions SET updated_at = datetime('now') WHERE session_id = ?",
+                (session_id,),
+            )
+        s_conn.commit()
+        s_conn.close()
 
     # Create a project-specific agent with this knowledge base
     project_agent = Agent(

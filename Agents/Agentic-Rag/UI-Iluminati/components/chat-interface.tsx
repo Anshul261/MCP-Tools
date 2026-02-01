@@ -26,6 +26,9 @@ import {
     type TeamInfo,
     type ProjectInfo,
     type ProjectFileInfo,
+    type ProjectSession,
+    listProjectSessions,
+    getProjectSessionRuns,
 } from "@/lib/api";
 import {
     Send,
@@ -44,6 +47,7 @@ import {
     Upload,
     FileText,
     Trash2,
+    ChevronDown,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -103,6 +107,11 @@ export function ChatInterface() {
     const [projects, setProjects] = useState<Project[]>([]);
     const [userId] = useState<string>(() => getUserId());
     const [uploadingFiles, setUploadingFiles] = useState(false);
+    const [showProjectFiles, setShowProjectFiles] = useState(true);
+    const [projectSessions, setProjectSessions] = useState<ProjectSession[]>(
+        [],
+    );
+    const [loadingProjectSessions, setLoadingProjectSessions] = useState(false);
 
     const [sessions, setSessions] = useState<Session[]>([]);
     const [loadingSessions, setLoadingSessions] = useState(false);
@@ -169,6 +178,49 @@ export function ChatInterface() {
             }
         } catch (error) {
             console.error("Failed to load project details:", error);
+        }
+    };
+
+    const loadProjectSessions = async (projectId: string) => {
+        setLoadingProjectSessions(true);
+        try {
+            const data = await listProjectSessions(projectId);
+            setProjectSessions(data);
+        } catch (error) {
+            console.error("Failed to load project sessions:", error);
+        } finally {
+            setLoadingProjectSessions(false);
+        }
+    };
+
+    const loadProjectSessionMessages = async (ps: ProjectSession) => {
+        if (!selectedProject) return;
+        try {
+            const runs = await getProjectSessionRuns(
+                ps.project_id,
+                ps.session_id,
+            );
+            const loadedMessages: Message[] = [];
+            runs.forEach((run) => {
+                if (run.run_input) {
+                    loadedMessages.push({
+                        id: `${run.run_id}-input`,
+                        role: "user",
+                        content: run.run_input,
+                    });
+                }
+                if (run.content) {
+                    loadedMessages.push({
+                        id: run.run_id,
+                        role: "assistant",
+                        content: run.content,
+                    });
+                }
+            });
+            setMessages(loadedMessages);
+            setSessionId(ps.session_id);
+        } catch (error) {
+            console.error("Failed to load project session messages:", error);
         }
     };
 
@@ -258,13 +310,27 @@ export function ChatInterface() {
     };
 
     const handleNewChat = async () => {
+        setMessages([]);
+        setUploadedFiles([]);
+
+        if (selectedProject) {
+            // In project mode: create a new project session
+            const newSessionId = `proj_${selectedProject.id.slice(0, 8)}_${Date.now()}`;
+            setSessionId(newSessionId);
+            console.log(
+                "[UI] Created new project session:",
+                newSessionId,
+                "for project:",
+                selectedProject.name,
+            );
+            return;
+        }
+
         if (!currentTeam) {
             console.error("[UI] No team selected");
             return;
         }
 
-        setMessages([]);
-        setUploadedFiles([]);
         setSelectedProject(null);
 
         // Create a new session with the current team
@@ -628,6 +694,8 @@ export function ChatInterface() {
                 setMessages((prev) => [...prev, errorMessage]);
             } finally {
                 setIsLoading(false);
+                // Reload project sessions so new session appears in sidebar
+                loadProjectSessions(selectedProject.id);
             }
         } else if (!currentTeam) {
             // No team available
@@ -820,7 +888,90 @@ export function ChatInterface() {
                                     ? `${selectedProject.name} Chats`
                                     : "Recent Conversations"}
                             </h3>
-                            {loadingSessions ? (
+                            {selectedProject ? (
+                                // Project sessions
+                                loadingProjectSessions ? (
+                                    <div className="text-center py-8">
+                                        <p className="font-mono text-xs text-muted-foreground">
+                                            Loading project chats...
+                                        </p>
+                                    </div>
+                                ) : projectSessions.length === 0 ? (
+                                    <div className="text-center py-8">
+                                        <MessageSquare className="w-8 h-8 text-muted-foreground mx-auto mb-2" />
+                                        <p className="font-mono text-xs text-muted-foreground">
+                                            No project chats yet
+                                        </p>
+                                        <p className="font-mono text-xs text-muted-foreground mt-1">
+                                            Ask a question to start
+                                        </p>
+                                    </div>
+                                ) : (
+                                    <div className="space-y-2">
+                                        {projectSessions.map((ps) => {
+                                            const isActive =
+                                                ps.session_id === sessionId;
+                                            const sessionDate = new Date(
+                                                ps.updated_at,
+                                            );
+                                            const now = new Date();
+                                            const diffHours =
+                                                (now.getTime() -
+                                                    sessionDate.getTime()) /
+                                                (1000 * 60 * 60);
+                                            const timeLabel =
+                                                diffHours < 1
+                                                    ? "Just now"
+                                                    : diffHours < 24
+                                                      ? "Today"
+                                                      : diffHours < 48
+                                                        ? "Yesterday"
+                                                        : sessionDate.toLocaleDateString();
+
+                                            return (
+                                                <button
+                                                    key={ps.session_id}
+                                                    onClick={() =>
+                                                        loadProjectSessionMessages(
+                                                            ps,
+                                                        )
+                                                    }
+                                                    className={cn(
+                                                        "w-full text-left p-3 rounded-sm border transition-colors group",
+                                                        isActive
+                                                            ? "bg-sidebar-accent border-primary"
+                                                            : "border-transparent hover:bg-sidebar-accent hover:border-sidebar-border",
+                                                    )}
+                                                >
+                                                    <div className="flex items-start gap-3">
+                                                        <FolderOpen
+                                                            className={cn(
+                                                                "w-4 h-4 mt-0.5 shrink-0",
+                                                                isActive
+                                                                    ? "text-primary"
+                                                                    : "text-muted-foreground",
+                                                            )}
+                                                        />
+                                                        <div className="flex-1 min-w-0">
+                                                            <p className="font-serif text-sm font-medium text-sidebar-foreground truncate">
+                                                                {
+                                                                    ps.session_name
+                                                                }
+                                                            </p>
+                                                            <div className="flex items-center gap-1 mt-2">
+                                                                <Clock className="w-3 h-3 text-muted-foreground" />
+                                                                <span className="font-mono text-xs text-muted-foreground">
+                                                                    {timeLabel}
+                                                                </span>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                </button>
+                                            );
+                                        })}
+                                    </div>
+                                )
+                            ) : loadingSessions ? (
                                 <div className="text-center py-8">
                                     <p className="font-mono text-xs text-muted-foreground">
                                         Loading sessions...
@@ -931,7 +1082,11 @@ export function ChatInterface() {
                                         <button
                                             onClick={() => {
                                                 loadProjectDetails(project.id);
+                                                loadProjectSessions(project.id);
                                                 setMessages([]);
+                                                setSessionId(
+                                                    `proj_${project.id.slice(0, 8)}_${Date.now()}`,
+                                                );
                                                 setActiveTab("chats");
                                             }}
                                             className="w-full text-left"
@@ -974,7 +1129,9 @@ export function ChatInterface() {
                 <div className="p-4 border-t border-sidebar-border">
                     <div className="font-mono text-xs text-muted-foreground uppercase tracking-wider text-center">
                         {activeTab === "chats"
-                            ? `${sessions.length} Conversations`
+                            ? selectedProject
+                                ? `${projectSessions.length} Project Chats`
+                                : `${sessions.length} Conversations`
                             : `${projects.length} Projects`}
                     </div>
                 </div>
@@ -999,7 +1156,14 @@ export function ChatInterface() {
                         {selectedProject ? (
                             <>
                                 <button
-                                    onClick={() => setSelectedProject(null)}
+                                    onClick={() => {
+                                        setSelectedProject(null);
+                                        setProjectSessions([]);
+                                        setMessages([]);
+                                        setSessionId(
+                                            `session_${Date.now()}`,
+                                        );
+                                    }}
                                     className="p-2 rounded-sm hover:bg-secondary transition-colors"
                                     aria-label="Back to all chats"
                                 >
@@ -1052,75 +1216,104 @@ export function ChatInterface() {
                 </header>
 
                 {selectedProject && (
-                    <div className="border-b border-border bg-card p-4">
+                    <div className="border-b border-border bg-card">
                         <div className="max-w-4xl mx-auto">
-                            <div className="flex items-center justify-between mb-3">
-                                <h3 className="font-mono text-xs uppercase tracking-widest text-muted-foreground">
-                                    Project Files
-                                </h3>
-                                <label
+                            <button
+                                onClick={() =>
+                                    setShowProjectFiles(!showProjectFiles)
+                                }
+                                className="w-full flex items-center justify-between px-4 py-3 hover:bg-secondary/50 transition-colors"
+                            >
+                                <div className="flex items-center gap-2">
+                                    <h3 className="font-mono text-xs uppercase tracking-widest text-muted-foreground">
+                                        Project Files
+                                    </h3>
+                                    <span className="font-mono text-xs text-muted-foreground">
+                                        ({selectedProject.files.length})
+                                    </span>
+                                </div>
+                                <ChevronDown
                                     className={cn(
-                                        "cursor-pointer",
-                                        uploadingFiles &&
-                                            "pointer-events-none opacity-50",
+                                        "w-4 h-4 text-muted-foreground transition-transform",
+                                        !showProjectFiles && "-rotate-90",
                                     )}
-                                >
-                                    <input
-                                        type="file"
-                                        multiple
-                                        className="hidden"
-                                        onChange={handleProjectFileUpload}
-                                    />
-                                    <div className="flex items-center gap-2 px-3 py-1.5 rounded-sm border border-border hover:bg-secondary transition-colors">
-                                        <Upload className="w-3 h-3 text-primary" />
-                                        <span className="font-mono text-xs uppercase tracking-wider text-primary">
-                                            {uploadingFiles
-                                                ? "Uploading..."
-                                                : "Upload"}
-                                        </span>
-                                    </div>
-                                </label>
-                            </div>
+                                />
+                            </button>
 
-                            {selectedProject.files.length > 0 ? (
-                                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2">
-                                    {selectedProject.files.map((file) => (
-                                        <div
-                                            key={file.id}
-                                            className="p-3 rounded-sm border border-border bg-background group hover:border-primary/30 transition-colors"
+                            {showProjectFiles && (
+                                <div className="px-4 pb-4">
+                                    <div className="flex justify-end mb-3">
+                                        <label
+                                            className={cn(
+                                                "cursor-pointer",
+                                                uploadingFiles &&
+                                                    "pointer-events-none opacity-50",
+                                            )}
                                         >
-                                            <div className="flex items-start justify-between gap-2">
-                                                <FileText className="w-4 h-4 text-primary shrink-0 mt-0.5" />
-                                                <button
-                                                    onClick={() =>
-                                                        handleRemoveFile(
-                                                            file.id,
-                                                        )
-                                                    }
-                                                    className="opacity-0 group-hover:opacity-100 transition-opacity p-1 hover:bg-destructive/10 rounded-sm"
-                                                    aria-label="Remove file"
-                                                >
-                                                    <Trash2 className="w-3 h-3 text-destructive" />
-                                                </button>
+                                            <input
+                                                type="file"
+                                                multiple
+                                                className="hidden"
+                                                onChange={
+                                                    handleProjectFileUpload
+                                                }
+                                            />
+                                            <div className="flex items-center gap-2 px-3 py-1.5 rounded-sm border border-border hover:bg-secondary transition-colors">
+                                                <Upload className="w-3 h-3 text-primary" />
+                                                <span className="font-mono text-xs uppercase tracking-wider text-primary">
+                                                    {uploadingFiles
+                                                        ? "Uploading..."
+                                                        : "Upload"}
+                                                </span>
                                             </div>
-                                            <p
-                                                className="font-mono text-xs text-foreground truncate mt-2"
-                                                title={file.name}
-                                            >
-                                                {file.name}
-                                            </p>
-                                            <p className="font-mono text-xs text-muted-foreground mt-1">
-                                                {formatFileSize(file.size)}
+                                        </label>
+                                    </div>
+
+                                    {selectedProject.files.length > 0 ? (
+                                        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2">
+                                            {selectedProject.files.map(
+                                                (file) => (
+                                                    <div
+                                                        key={file.id}
+                                                        className="p-3 rounded-sm border border-border bg-background group hover:border-primary/30 transition-colors"
+                                                    >
+                                                        <div className="flex items-start justify-between gap-2">
+                                                            <FileText className="w-4 h-4 text-primary shrink-0 mt-0.5" />
+                                                            <button
+                                                                onClick={() =>
+                                                                    handleRemoveFile(
+                                                                        file.id,
+                                                                    )
+                                                                }
+                                                                className="opacity-0 group-hover:opacity-100 transition-opacity p-1 hover:bg-destructive/10 rounded-sm"
+                                                                aria-label="Remove file"
+                                                            >
+                                                                <Trash2 className="w-3 h-3 text-destructive" />
+                                                            </button>
+                                                        </div>
+                                                        <p
+                                                            className="font-mono text-xs text-foreground truncate mt-2"
+                                                            title={file.name}
+                                                        >
+                                                            {file.name}
+                                                        </p>
+                                                        <p className="font-mono text-xs text-muted-foreground mt-1">
+                                                            {formatFileSize(
+                                                                file.size,
+                                                            )}
+                                                        </p>
+                                                    </div>
+                                                ),
+                                            )}
+                                        </div>
+                                    ) : (
+                                        <div className="text-center py-8 border border-dashed border-border rounded-sm">
+                                            <Upload className="w-8 h-8 text-muted-foreground mx-auto mb-2" />
+                                            <p className="font-mono text-xs text-muted-foreground uppercase tracking-wider">
+                                                No files uploaded yet
                                             </p>
                                         </div>
-                                    ))}
-                                </div>
-                            ) : (
-                                <div className="text-center py-8 border border-dashed border-border rounded-sm">
-                                    <Upload className="w-8 h-8 text-muted-foreground mx-auto mb-2" />
-                                    <p className="font-mono text-xs text-muted-foreground uppercase tracking-wider">
-                                        No files uploaded yet
-                                    </p>
+                                    )}
                                 </div>
                             )}
                         </div>

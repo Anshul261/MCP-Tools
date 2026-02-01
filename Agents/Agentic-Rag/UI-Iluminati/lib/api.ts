@@ -465,6 +465,57 @@ export async function deleteProjectFile(
     }
 }
 
+// ============================================================================
+// Project Session Management
+// ============================================================================
+
+export interface ProjectSession {
+    session_id: string;
+    project_id: string;
+    session_name: string;
+    created_at: string;
+    updated_at: string;
+}
+
+/**
+ * List all sessions for a project
+ */
+export async function listProjectSessions(
+    projectId: string,
+): Promise<ProjectSession[]> {
+    try {
+        const response = await fetch(
+            `${API_BASE_URL}/projects/${projectId}/sessions`,
+        );
+        if (!response.ok) return [];
+        const data = await response.json();
+        return Array.isArray(data) ? data : [];
+    } catch (error) {
+        console.error("Failed to list project sessions:", error);
+        return [];
+    }
+}
+
+/**
+ * Get all runs (messages) for a project session
+ */
+export async function getProjectSessionRuns(
+    projectId: string,
+    sessionId: string,
+): Promise<SessionRun[]> {
+    try {
+        const response = await fetch(
+            `${API_BASE_URL}/projects/${projectId}/sessions/${sessionId}/runs`,
+        );
+        if (!response.ok) return [];
+        const data = await response.json();
+        return Array.isArray(data) ? data : [];
+    } catch (error) {
+        console.error("Failed to get project session runs:", error);
+        return [];
+    }
+}
+
 /**
  * Query a project's knowledge base (returns fetch Response for SSE streaming)
  */
