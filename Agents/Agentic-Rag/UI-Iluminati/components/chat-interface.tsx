@@ -883,6 +883,24 @@ export function ChatInterface() {
                 <div className="flex-1 overflow-y-auto p-4">
                     {activeTab === "chats" ? (
                         <>
+                            {selectedProject && (
+                                <button
+                                    onClick={() => {
+                                        setSelectedProject(null);
+                                        setProjectSessions([]);
+                                        setMessages([]);
+                                        setSessionId(
+                                            `session_${Date.now()}`,
+                                        );
+                                    }}
+                                    className="flex items-center gap-2 mb-3 p-2 w-full rounded-sm hover:bg-sidebar-accent transition-colors text-muted-foreground hover:text-foreground"
+                                >
+                                    <ChevronLeft className="w-4 h-4" />
+                                    <span className="font-mono text-xs uppercase tracking-wider">
+                                        Back to all chats
+                                    </span>
+                                </button>
+                            )}
                             <h3 className="font-mono text-xs uppercase tracking-widest text-muted-foreground mb-4">
                                 {selectedProject
                                     ? `${selectedProject.name} Chats`

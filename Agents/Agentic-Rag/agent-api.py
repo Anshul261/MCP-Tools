@@ -722,35 +722,47 @@ async def list_project_sessions(project_id: str):
 @custom_router.get("/projects/{project_id}/sessions/{session_id}/runs")
 async def get_project_session_runs(project_id: str, session_id: str):
     """Get all runs (messages) for a project session."""
-    # Use the AGNO session storage to fetch runs
     try:
-        session_data = db.read(session_id=session_id)
-        if not session_data:
+        conn = sqlite3.connect(PROJECTS_DB)
+        conn.row_factory = sqlite3.Row
+        row = conn.execute(
+            "SELECT runs FROM agno_sessions WHERE session_id = ?",
+            (session_id,),
+        ).fetchone()
+        conn.close()
+
+        if not row or not row["runs"]:
             return JSONResponse(content=[])
 
+        # AGNO stores runs as double-encoded JSON
+        raw = row["runs"]
+        parsed = json.loads(raw)
+        if isinstance(parsed, str):
+            parsed = json.loads(parsed)
+
         runs = []
-        if hasattr(session_data, "runs") and session_data.runs:
-            for run in session_data.runs:
-                run_input = ""
-                run_content = ""
-                if hasattr(run, "message") and run.message:
-                    if hasattr(run.message, "content"):
-                        run_input = run.message.content or ""
-                    elif isinstance(run.message, str):
-                        run_input = run.message
-                if hasattr(run, "response") and run.response:
-                    if hasattr(run.response, "content"):
-                        run_content = run.response.content or ""
-                    elif isinstance(run.response, str):
-                        run_content = run.response
-                runs.append(
-                    {
-                        "run_id": getattr(run, "run_id", str(uuid.uuid4())),
-                        "run_input": run_input,
-                        "content": run_content,
-                        "created_at": getattr(run, "created_at", ""),
-                    }
-                )
+        for run in parsed:
+            run_input = ""
+            inp = run.get("input")
+            if isinstance(inp, dict):
+                run_input = inp.get("input_content", "")
+            elif isinstance(inp, str):
+                run_input = inp
+            # Fallback: check messages for user role
+            if not run_input:
+                for m in run.get("messages", []):
+                    if isinstance(m, dict) and m.get("role") == "user":
+                        run_input = m.get("content", "")
+                        break
+
+            runs.append(
+                {
+                    "run_id": run.get("run_id", str(uuid.uuid4())),
+                    "run_input": run_input,
+                    "content": run.get("content", ""),
+                    "created_at": run.get("created_at", ""),
+                }
+            )
         return JSONResponse(content=runs)
     except Exception as e:
         print(f"[PROJECT SESSIONS] Error fetching runs: {e}")
