@@ -1,0 +1,32 @@
+services:
+  backend:
+    build:
+      context: ../..
+      dockerfile: Agents/it-support-agent/Dockerfile
+    ports:
+      - "7777:7777"
+    env_file: .env
+    depends_on:
+      - db
+
+  frontend:
+    build: ./agent-ui
+    ports:
+      - "3000:3000"
+    environment:
+      - NEXT_PUBLIC_API_URL=http://backend:7777
+    depends_on:
+      - backend
+
+  db:
+    image: pgvector/pgvector:pg16
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_PASSWORD: dev
+      POSTGRES_DB: it_agent
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+
+volumes:
+  pgdata:

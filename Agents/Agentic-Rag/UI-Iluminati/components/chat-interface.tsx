@@ -13,9 +13,22 @@ import {
     listTeams,
     getDefaultTeam,
     API_BASE_URL,
+    getUserId,
+    listProjects,
+    createProject as apiCreateProject,
+    getProject as apiGetProject,
+    deleteProject as apiDeleteProject,
+    uploadProjectFiles,
+    deleteProjectFile,
+    queryProject,
     type Session,
     type SessionRun,
     type TeamInfo,
+    type ProjectInfo,
+    type ProjectFileInfo,
+    type ProjectSession,
+    listProjectSessions,
+    getProjectSessionRuns,
 } from "@/lib/api";
 import {
     Send,
@@ -34,6 +47,7 @@ import {
     Upload,
     FileText,
     Trash2,
+    ChevronDown,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -58,7 +72,7 @@ interface Project {
     id: string;
     name: string;
     description: string;
-    chatCount: number;
+    file_count: number;
     files: UploadedFile[];
 }
 
@@ -90,29 +104,14 @@ export function ChatInterface() {
     const [selectedProject, setSelectedProject] = useState<Project | null>(
         null,
     );
-    const [projects, setProjects] = useState<Project[]>([
-        {
-            id: "1",
-            name: "E-commerce App",
-            description: "Building an online store",
-            chatCount: 5,
-            files: [],
-        },
-        {
-            id: "2",
-            name: "Dashboard UI",
-            description: "Admin panel design",
-            chatCount: 3,
-            files: [],
-        },
-        {
-            id: "3",
-            name: "API Documentation",
-            description: "REST API specs",
-            chatCount: 2,
-            files: [],
-        },
-    ]);
+    const [projects, setProjects] = useState<Project[]>([]);
+    const [userId] = useState<string>(() => getUserId());
+    const [uploadingFiles, setUploadingFiles] = useState(false);
+    const [showProjectFiles, setShowProjectFiles] = useState(true);
+    const [projectSessions, setProjectSessions] = useState<ProjectSession[]>(
+        [],
+    );
+    const [loadingProjectSessions, setLoadingProjectSessions] = useState(false);
 
     const [sessions, setSessions] = useState<Session[]>([]);
     const [loadingSessions, setLoadingSessions] = useState(false);
@@ -136,6 +135,99 @@ export function ChatInterface() {
         }
     }, [isDark]);
 
+    // Load projects from API
+    const loadProjects = async () => {
+        try {
+            const data = await listProjects(userId);
+            setProjects(
+                data.map((p) => ({
+                    id: p.id,
+                    name: p.name,
+                    description: p.description,
+                    file_count: p.file_count || 0,
+                    files: [],
+                })),
+            );
+        } catch (error) {
+            console.error("Failed to load projects:", error);
+        }
+    };
+
+    // Load project details (with file list)
+    const loadProjectDetails = async (projectId: string) => {
+        try {
+            const detail = await apiGetProject(projectId);
+            if (detail) {
+                const proj: Project = {
+                    id: detail.id,
+                    name: detail.name,
+                    description: detail.description,
+                    file_count: detail.files?.length || 0,
+                    files: (detail.files || []).map((f) => ({
+                        id: f.id,
+                        name: f.filename,
+                        size: f.size,
+                        type: f.file_type,
+                    })),
+                };
+                setSelectedProject(proj);
+                // Update in list too
+                setProjects((prev) =>
+                    prev.map((p) => (p.id === proj.id ? proj : p)),
+                );
+            }
+        } catch (error) {
+            console.error("Failed to load project details:", error);
+        }
+    };
+
+    const loadProjectSessions = async (projectId: string) => {
+        setLoadingProjectSessions(true);
+        try {
+            const data = await listProjectSessions(projectId);
+            setProjectSessions(data);
+        } catch (error) {
+            console.error("Failed to load project sessions:", error);
+        } finally {
+            setLoadingProjectSessions(false);
+        }
+    };
+
+    const loadProjectSessionMessages = async (ps: ProjectSession) => {
+        if (!selectedProject) return;
+        try {
+            const runs = await getProjectSessionRuns(
+                ps.project_id,
+                ps.session_id,
+            );
+            const loadedMessages: Message[] = [];
+            runs.forEach((run) => {
+                if (run.run_input) {
+                    loadedMessages.push({
+                        id: `${run.run_id}-input`,
+                        role: "user",
+                        content: run.run_input,
+                    });
+                }
+                if (run.content) {
+                    loadedMessages.push({
+                        id: run.run_id,
+                        role: "assistant",
+                        content: run.content,
+                    });
+                }
+            });
+            setMessages(loadedMessages);
+            setSessionId(ps.session_id);
+        } catch (error) {
+            console.error("Failed to load project session messages:", error);
+        }
+    };
+
+    useEffect(() => {
+        loadProjects();
+    }, [userId]);
+
     // Load teams on component mount
     useEffect(() => {
         const loadTeams = async () => {
@@ -145,7 +237,10 @@ export function ChatInterface() {
                 setAvailableTeams(teams);
                 if (teams.length > 0) {
                     setCurrentTeam(teams[0]);
-                    console.log("[UI] Loaded teams:", teams.map(t => t.name));
+                    console.log(
+                        "[UI] Loaded teams:",
+                        teams.map((t) => t.name),
+                    );
                     console.log("[UI] Default team:", teams[0].name);
                 }
             } catch (error) {
@@ -215,20 +310,39 @@ export function ChatInterface() {
     };
 
     const handleNewChat = async () => {
+        setMessages([]);
+        setUploadedFiles([]);
+
+        if (selectedProject) {
+            // In project mode: create a new project session
+            const newSessionId = `proj_${selectedProject.id.slice(0, 8)}_${Date.now()}`;
+            setSessionId(newSessionId);
+            console.log(
+                "[UI] Created new project session:",
+                newSessionId,
+                "for project:",
+                selectedProject.name,
+            );
+            return;
+        }
+
         if (!currentTeam) {
             console.error("[UI] No team selected");
             return;
         }
 
-        setMessages([]);
-        setUploadedFiles([]);
         setSelectedProject(null);
 
         // Create a new session with the current team
         const newSessionId = await createSession(currentTeam.id);
         if (newSessionId) {
             setSessionId(newSessionId);
-            console.log("[UI] Created new session:", newSessionId, "for team:", currentTeam.name);
+            console.log(
+                "[UI] Created new session:",
+                newSessionId,
+                "for team:",
+                currentTeam.name,
+            );
             // Reload sessions list
             loadSessions();
         }
@@ -356,7 +470,11 @@ export function ChatInterface() {
                                         } else if (
                                             currentEvent === "ToolCallStarted"
                                         ) {
-                                            const agentName = data.agent?.name || data.agent?.id || currentTeam?.name || "Team";
+                                            const agentName =
+                                                data.agent?.name ||
+                                                data.agent?.id ||
+                                                currentTeam?.name ||
+                                                "Team";
                                             const step: AgentTraceStep = {
                                                 type: "tool_call",
                                                 title: `Using ${data.tool?.tool_name || "tool"}`,
@@ -381,7 +499,11 @@ export function ChatInterface() {
                                         } else if (
                                             currentEvent === "ToolCallCompleted"
                                         ) {
-                                            const agentName = data.agent?.name || data.agent?.id || currentTeam?.name || "Team";
+                                            const agentName =
+                                                data.agent?.name ||
+                                                data.agent?.id ||
+                                                currentTeam?.name ||
+                                                "Team";
                                             const step: AgentTraceStep = {
                                                 type: "tool_call",
                                                 title: `Completed ${data.tool?.tool_name || "tool"}`,
@@ -403,12 +525,15 @@ export function ChatInterface() {
                                         } else if (
                                             currentEvent === "RunStarted"
                                         ) {
-                                            const agentName = data.agent?.name || data.agent?.id || currentTeam?.name || "Team";
+                                            const agentName =
+                                                data.agent?.name ||
+                                                data.agent?.id ||
+                                                currentTeam?.name ||
+                                                "Team";
                                             const step: AgentTraceStep = {
                                                 type: "agent_start",
                                                 title: "Team started processing",
-                                                description:
-                                                    `${currentTeam?.name || "Team"} is analyzing your request`,
+                                                description: `${currentTeam?.name || "Team"} is analyzing your request`,
                                                 timestamp:
                                                     new Date().toLocaleTimeString(),
                                                 agent: agentName,
@@ -476,23 +601,109 @@ export function ChatInterface() {
                 setCurrentProgress("");
             }
         } else if (selectedProject) {
-            // Project mode - use mock response (or implement project-specific logic later)
-            setTimeout(() => {
-                const assistantMessage: Message = {
+            // Project mode - query project knowledge base via SSE
+            try {
+                const response = await queryProject(
+                    selectedProject.id,
+                    currentInput,
+                    sessionId,
+                );
+
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+
+                if (response.body) {
+                    const reader = response.body.getReader();
+                    const decoder = new TextDecoder();
+                    let accumulatedContent = "";
+                    let buffer = "";
+
+                    const aiMessageId = (Date.now() + 1).toString();
+                    setMessages((prev) => [
+                        ...prev,
+                        { id: aiMessageId, role: "assistant", content: "" },
+                    ]);
+
+                    try {
+                        while (true) {
+                            const { done, value } = await reader.read();
+                            if (done) break;
+
+                            buffer += decoder.decode(value, { stream: true });
+                            const lines = buffer.split("\n");
+                            buffer = lines.pop() || "";
+
+                            let currentEvent = "";
+                            for (const line of lines) {
+                                if (line.startsWith("event: ")) {
+                                    currentEvent = line.slice(7).trim();
+                                } else if (line.startsWith("data: ")) {
+                                    try {
+                                        const data = JSON.parse(line.slice(6));
+                                        if (
+                                            currentEvent === "RunContent" &&
+                                            data.content
+                                        ) {
+                                            accumulatedContent += data.content;
+                                            setMessages((prev) =>
+                                                prev.map((msg) =>
+                                                    msg.id === aiMessageId
+                                                        ? {
+                                                              ...msg,
+                                                              content:
+                                                                  accumulatedContent,
+                                                          }
+                                                        : msg,
+                                                ),
+                                            );
+                                        } else if (
+                                            currentEvent === "RunError" &&
+                                            data.error
+                                        ) {
+                                            accumulatedContent += `\n\nError: ${data.error}`;
+                                            setMessages((prev) =>
+                                                prev.map((msg) =>
+                                                    msg.id === aiMessageId
+                                                        ? {
+                                                              ...msg,
+                                                              content:
+                                                                  accumulatedContent,
+                                                          }
+                                                        : msg,
+                                                ),
+                                            );
+                                        }
+                                    } catch {
+                                        // skip parse errors
+                                    }
+                                }
+                            }
+                        }
+                    } finally {
+                        reader.releaseLock();
+                    }
+                }
+            } catch (error) {
+                console.error("Error querying project:", error);
+                const errorMessage: Message = {
                     id: (Date.now() + 1).toString(),
                     role: "assistant",
-                    content:
-                        "Project mode is not connected to the team yet. This is a mock response for project-specific queries.",
+                    content: `Error querying project: ${error instanceof Error ? error.message : "Unknown error"}`,
                 };
-                setMessages((prev) => [...prev, assistantMessage]);
+                setMessages((prev) => [...prev, errorMessage]);
+            } finally {
                 setIsLoading(false);
-            }, 1000);
+                // Reload project sessions so new session appears in sidebar
+                loadProjectSessions(selectedProject.id);
+            }
         } else if (!currentTeam) {
             // No team available
             const errorMessage: Message = {
                 id: (Date.now() + 1).toString(),
                 role: "assistant",
-                content: "No team available. Please check if the API is running and has teams configured.",
+                content:
+                    "No team available. Please check if the API is running and has teams configured.",
             };
             setMessages((prev) => [...prev, errorMessage]);
             setIsLoading(false);
@@ -510,66 +721,113 @@ export function ChatInterface() {
         fileInputRef.current?.click();
     };
 
-    const handleCreateProject = () => {
+    const handleCreateProject = async () => {
         if (!newProjectName.trim()) return;
 
-        const newProject: Project = {
-            id: Date.now().toString(),
-            name: newProjectName,
-            description: newProjectDescription,
-            chatCount: 0,
-            files: [],
-        };
-
-        setProjects((prev) => [newProject, ...prev]);
+        const result = await apiCreateProject(
+            userId,
+            newProjectName,
+            newProjectDescription,
+        );
+        if (result) {
+            const newProject: Project = {
+                id: result.id,
+                name: result.name,
+                description: result.description,
+                file_count: 0,
+                files: [],
+            };
+            setProjects((prev) => [newProject, ...prev]);
+            setSelectedProject(newProject);
+        }
         setNewProjectName("");
         setNewProjectDescription("");
         setShowNewProjectModal(false);
-        setSelectedProject(newProject);
     };
 
-    const handleProjectFileUpload = (
+    const handleProjectFileUpload = async (
         e: React.ChangeEvent<HTMLInputElement>,
     ) => {
         if (!selectedProject || !e.target.files) return;
 
         const files = Array.from(e.target.files);
-        const uploadedFiles: UploadedFile[] = files.map((file) => ({
-            id: Date.now().toString() + Math.random(),
-            name: file.name,
-            size: file.size,
-            type: file.type,
-        }));
+        setUploadingFiles(true);
 
-        setProjects((prev) =>
-            prev.map((p) =>
-                p.id === selectedProject.id
-                    ? { ...p, files: [...p.files, ...uploadedFiles] }
-                    : p,
-            ),
-        );
+        try {
+            const result = await uploadProjectFiles(selectedProject.id, files);
+            if (result && result.uploaded) {
+                const newFiles: UploadedFile[] = result.uploaded.map((f) => ({
+                    id: f.id,
+                    name: f.filename,
+                    size: f.size,
+                    type: f.file_type,
+                }));
 
-        setSelectedProject((prev) =>
-            prev ? { ...prev, files: [...prev.files, ...uploadedFiles] } : null,
-        );
+                setSelectedProject((prev) =>
+                    prev
+                        ? {
+                              ...prev,
+                              files: [...prev.files, ...newFiles],
+                              file_count: prev.file_count + newFiles.length,
+                          }
+                        : null,
+                );
+                setProjects((prev) =>
+                    prev.map((p) =>
+                        p.id === selectedProject.id
+                            ? {
+                                  ...p,
+                                  files: [...p.files, ...newFiles],
+                                  file_count: p.file_count + newFiles.length,
+                              }
+                            : p,
+                    ),
+                );
+                console.log(
+                    `[UI] Uploaded ${result.uploaded.length} files, ingested ${result.ingested} into knowledge base`,
+                );
+            }
+        } catch (error) {
+            console.error("Failed to upload project files:", error);
+        } finally {
+            setUploadingFiles(false);
+        }
     };
 
-    const handleRemoveFile = (fileId: string) => {
+    const handleRemoveFile = async (fileId: string) => {
         if (!selectedProject) return;
+
+        await deleteProjectFile(selectedProject.id, fileId);
 
         setProjects((prev) =>
             prev.map((p) =>
                 p.id === selectedProject.id
-                    ? { ...p, files: p.files.filter((f) => f.id !== fileId) }
+                    ? {
+                          ...p,
+                          files: p.files.filter((f) => f.id !== fileId),
+                          file_count: Math.max(0, p.file_count - 1),
+                      }
                     : p,
             ),
         );
 
         setSelectedProject((prev) =>
             prev
-                ? { ...prev, files: prev.files.filter((f) => f.id !== fileId) }
+                ? {
+                      ...prev,
+                      files: prev.files.filter((f) => f.id !== fileId),
+                      file_count: Math.max(0, prev.file_count - 1),
+                  }
                 : null,
         );
+    };
+
+    const handleDeleteProject = async (projectId: string) => {
+        await apiDeleteProject(projectId);
+        setProjects((prev) => prev.filter((p) => p.id !== projectId));
+        if (selectedProject?.id === projectId) {
+            setSelectedProject(null);
+        }
     };
 
     const formatFileSize = (bytes: number) => {
@@ -625,12 +883,113 @@ export function ChatInterface() {
                 <div className="flex-1 overflow-y-auto p-4">
                     {activeTab === "chats" ? (
                         <>
+                            {selectedProject && (
+                                <button
+                                    onClick={() => {
+                                        setSelectedProject(null);
+                                        setProjectSessions([]);
+                                        setMessages([]);
+                                        setSessionId(
+                                            `session_${Date.now()}`,
+                                        );
+                                    }}
+                                    className="flex items-center gap-2 mb-3 p-2 w-full rounded-sm hover:bg-sidebar-accent transition-colors text-muted-foreground hover:text-foreground"
+                                >
+                                    <ChevronLeft className="w-4 h-4" />
+                                    <span className="font-mono text-xs uppercase tracking-wider">
+                                        Back to all chats
+                                    </span>
+                                </button>
+                            )}
                             <h3 className="font-mono text-xs uppercase tracking-widest text-muted-foreground mb-4">
                                 {selectedProject
                                     ? `${selectedProject.name} Chats`
                                     : "Recent Conversations"}
                             </h3>
-                            {loadingSessions ? (
+                            {selectedProject ? (
+                                // Project sessions
+                                loadingProjectSessions ? (
+                                    <div className="text-center py-8">
+                                        <p className="font-mono text-xs text-muted-foreground">
+                                            Loading project chats...
+                                        </p>
+                                    </div>
+                                ) : projectSessions.length === 0 ? (
+                                    <div className="text-center py-8">
+                                        <MessageSquare className="w-8 h-8 text-muted-foreground mx-auto mb-2" />
+                                        <p className="font-mono text-xs text-muted-foreground">
+                                            No project chats yet
+                                        </p>
+                                        <p className="font-mono text-xs text-muted-foreground mt-1">
+                                            Ask a question to start
+                                        </p>
+                                    </div>
+                                ) : (
+                                    <div className="space-y-2">
+                                        {projectSessions.map((ps) => {
+                                            const isActive =
+                                                ps.session_id === sessionId;
+                                            const sessionDate = new Date(
+                                                ps.updated_at,
+                                            );
+                                            const now = new Date();
+                                            const diffHours =
+                                                (now.getTime() -
+                                                    sessionDate.getTime()) /
+                                                (1000 * 60 * 60);
+                                            const timeLabel =
+                                                diffHours < 1
+                                                    ? "Just now"
+                                                    : diffHours < 24
+                                                      ? "Today"
+                                                      : diffHours < 48
+                                                        ? "Yesterday"
+                                                        : sessionDate.toLocaleDateString();
+
+                                            return (
+                                                <button
+                                                    key={ps.session_id}
+                                                    onClick={() =>
+                                                        loadProjectSessionMessages(
+                                                            ps,
+                                                        )
+                                                    }
+                                                    className={cn(
+                                                        "w-full text-left p-3 rounded-sm border transition-colors group",
+                                                        isActive
+                                                            ? "bg-sidebar-accent border-primary"
+                                                            : "border-transparent hover:bg-sidebar-accent hover:border-sidebar-border",
+                                                    )}
+                                                >
+                                                    <div className="flex items-start gap-3">
+                                                        <FolderOpen
+                                                            className={cn(
+                                                                "w-4 h-4 mt-0.5 shrink-0",
+                                                                isActive
+                                                                    ? "text-primary"
+                                                                    : "text-muted-foreground",
+                                                            )}
+                                                        />
+                                                        <div className="flex-1 min-w-0">
+                                                            <p className="font-serif text-sm font-medium text-sidebar-foreground truncate">
+                                                                {
+                                                                    ps.session_name
+                                                                }
+                                                            </p>
+                                                            <div className="flex items-center gap-1 mt-2">
+                                                                <Clock className="w-3 h-3 text-muted-foreground" />
+                                                                <span className="font-mono text-xs text-muted-foreground">
+                                                                    {timeLabel}
+                                                                </span>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                </button>
+                                            );
+                                        })}
+                                    </div>
+                                )
+                            ) : loadingSessions ? (
                                 <div className="text-center py-8">
                                     <p className="font-mono text-xs text-muted-foreground">
                                         Loading sessions...
@@ -729,41 +1088,56 @@ export function ChatInterface() {
                                 </button>
 
                                 {projects.map((project) => (
-                                    <button
+                                    <div
                                         key={project.id}
-                                        onClick={() => {
-                                            setSelectedProject(project);
-                                            setActiveTab("chats");
-                                        }}
                                         className={cn(
-                                            "w-full text-left p-3 rounded-sm border transition-colors group",
+                                            "w-full text-left p-3 rounded-sm border transition-colors group relative",
                                             selectedProject?.id === project.id
                                                 ? "bg-sidebar-accent border-primary"
                                                 : "border-transparent hover:bg-sidebar-accent hover:border-sidebar-border",
                                         )}
                                     >
-                                        <div className="flex items-start gap-3">
-                                            <FolderOpen className="w-4 h-4 text-primary mt-0.5 shrink-0" />
-                                            <div className="flex-1 min-w-0">
-                                                <p className="font-serif text-sm font-medium text-sidebar-foreground truncate">
-                                                    {project.name}
-                                                </p>
-                                                <p className="font-mono text-xs text-muted-foreground truncate mt-1">
-                                                    {project.description}
-                                                </p>
-                                                <div className="flex items-center gap-3 mt-2">
-                                                    <span className="font-mono text-xs text-muted-foreground">
-                                                        {project.chatCount}{" "}
-                                                        chats
-                                                    </span>
-                                                    <span className="font-mono text-xs text-muted-foreground">
-                                                        {project.files.length}{" "}
-                                                        files
-                                                    </span>
+                                        <button
+                                            onClick={() => {
+                                                loadProjectDetails(project.id);
+                                                loadProjectSessions(project.id);
+                                                setMessages([]);
+                                                setSessionId(
+                                                    `proj_${project.id.slice(0, 8)}_${Date.now()}`,
+                                                );
+                                                setActiveTab("chats");
+                                            }}
+                                            className="w-full text-left"
+                                        >
+                                            <div className="flex items-start gap-3">
+                                                <FolderOpen className="w-4 h-4 text-primary mt-0.5 shrink-0" />
+                                                <div className="flex-1 min-w-0">
+                                                    <p className="font-serif text-sm font-medium text-sidebar-foreground truncate">
+                                                        {project.name}
+                                                    </p>
+                                                    <p className="font-mono text-xs text-muted-foreground truncate mt-1">
+                                                        {project.description}
+                                                    </p>
+                                                    <div className="flex items-center gap-3 mt-2">
+                                                        <span className="font-mono text-xs text-muted-foreground">
+                                                            {project.file_count}{" "}
+                                                            files
+                                                        </span>
+                                                    </div>
                                                 </div>
                                             </div>
-                                        </div>
-                                    </button>
+                                        </button>
+                                        <button
+                                            onClick={(e) => {
+                                                e.stopPropagation();
+                                                handleDeleteProject(project.id);
+                                            }}
+                                            className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 p-1 hover:bg-destructive/10 rounded-sm transition-opacity"
+                                            aria-label="Delete project"
+                                        >
+                                            <Trash2 className="w-3 h-3 text-destructive" />
+                                        </button>
+                                    </div>
                                 ))}
                             </div>
                         </>
@@ -773,7 +1147,9 @@ export function ChatInterface() {
                 <div className="p-4 border-t border-sidebar-border">
                     <div className="font-mono text-xs text-muted-foreground uppercase tracking-wider text-center">
                         {activeTab === "chats"
-                            ? `${sessions.length} Conversations`
+                            ? selectedProject
+                                ? `${projectSessions.length} Project Chats`
+                                : `${sessions.length} Conversations`
                             : `${projects.length} Projects`}
                     </div>
                 </div>
@@ -798,7 +1174,14 @@ export function ChatInterface() {
                         {selectedProject ? (
                             <>
                                 <button
-                                    onClick={() => setSelectedProject(null)}
+                                    onClick={() => {
+                                        setSelectedProject(null);
+                                        setProjectSessions([]);
+                                        setMessages([]);
+                                        setSessionId(
+                                            `session_${Date.now()}`,
+                                        );
+                                    }}
                                     className="p-2 rounded-sm hover:bg-secondary transition-colors"
                                     aria-label="Back to all chats"
                                 >
@@ -824,7 +1207,8 @@ export function ChatInterface() {
                                     </h1>
                                     {currentTeam && (
                                         <p className="font-mono text-xs text-muted-foreground">
-                                            {currentTeam.members?.length || 0} team members
+                                            {currentTeam.members?.length || 0}{" "}
+                                            team members
                                         </p>
                                     )}
                                 </div>
@@ -850,67 +1234,104 @@ export function ChatInterface() {
                 </header>
 
                 {selectedProject && (
-                    <div className="border-b border-border bg-card p-4">
+                    <div className="border-b border-border bg-card">
                         <div className="max-w-4xl mx-auto">
-                            <div className="flex items-center justify-between mb-3">
-                                <h3 className="font-mono text-xs uppercase tracking-widest text-muted-foreground">
-                                    Project Files
-                                </h3>
-                                <label className="cursor-pointer">
-                                    <input
-                                        type="file"
-                                        multiple
-                                        className="hidden"
-                                        onChange={handleProjectFileUpload}
-                                    />
-                                    <div className="flex items-center gap-2 px-3 py-1.5 rounded-sm border border-border hover:bg-secondary transition-colors">
-                                        <Upload className="w-3 h-3 text-primary" />
-                                        <span className="font-mono text-xs uppercase tracking-wider text-primary">
-                                            Upload
-                                        </span>
-                                    </div>
-                                </label>
-                            </div>
+                            <button
+                                onClick={() =>
+                                    setShowProjectFiles(!showProjectFiles)
+                                }
+                                className="w-full flex items-center justify-between px-4 py-3 hover:bg-secondary/50 transition-colors"
+                            >
+                                <div className="flex items-center gap-2">
+                                    <h3 className="font-mono text-xs uppercase tracking-widest text-muted-foreground">
+                                        Project Files
+                                    </h3>
+                                    <span className="font-mono text-xs text-muted-foreground">
+                                        ({selectedProject.files.length})
+                                    </span>
+                                </div>
+                                <ChevronDown
+                                    className={cn(
+                                        "w-4 h-4 text-muted-foreground transition-transform",
+                                        !showProjectFiles && "-rotate-90",
+                                    )}
+                                />
+                            </button>
 
-                            {selectedProject.files.length > 0 ? (
-                                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2">
-                                    {selectedProject.files.map((file) => (
-                                        <div
-                                            key={file.id}
-                                            className="p-3 rounded-sm border border-border bg-background group hover:border-primary/30 transition-colors"
+                            {showProjectFiles && (
+                                <div className="px-4 pb-4">
+                                    <div className="flex justify-end mb-3">
+                                        <label
+                                            className={cn(
+                                                "cursor-pointer",
+                                                uploadingFiles &&
+                                                    "pointer-events-none opacity-50",
+                                            )}
                                         >
-                                            <div className="flex items-start justify-between gap-2">
-                                                <FileText className="w-4 h-4 text-primary shrink-0 mt-0.5" />
-                                                <button
-                                                    onClick={() =>
-                                                        handleRemoveFile(
-                                                            file.id,
-                                                        )
-                                                    }
-                                                    className="opacity-0 group-hover:opacity-100 transition-opacity p-1 hover:bg-destructive/10 rounded-sm"
-                                                    aria-label="Remove file"
-                                                >
-                                                    <Trash2 className="w-3 h-3 text-destructive" />
-                                                </button>
+                                            <input
+                                                type="file"
+                                                multiple
+                                                className="hidden"
+                                                onChange={
+                                                    handleProjectFileUpload
+                                                }
+                                            />
+                                            <div className="flex items-center gap-2 px-3 py-1.5 rounded-sm border border-border hover:bg-secondary transition-colors">
+                                                <Upload className="w-3 h-3 text-primary" />
+                                                <span className="font-mono text-xs uppercase tracking-wider text-primary">
+                                                    {uploadingFiles
+                                                        ? "Uploading..."
+                                                        : "Upload"}
+                                                </span>
                                             </div>
-                                            <p
-                                                className="font-mono text-xs text-foreground truncate mt-2"
-                                                title={file.name}
-                                            >
-                                                {file.name}
-                                            </p>
-                                            <p className="font-mono text-xs text-muted-foreground mt-1">
-                                                {formatFileSize(file.size)}
+                                        </label>
+                                    </div>
+
+                                    {selectedProject.files.length > 0 ? (
+                                        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2">
+                                            {selectedProject.files.map(
+                                                (file) => (
+                                                    <div
+                                                        key={file.id}
+                                                        className="p-3 rounded-sm border border-border bg-background group hover:border-primary/30 transition-colors"
+                                                    >
+                                                        <div className="flex items-start justify-between gap-2">
+                                                            <FileText className="w-4 h-4 text-primary shrink-0 mt-0.5" />
+                                                            <button
+                                                                onClick={() =>
+                                                                    handleRemoveFile(
+                                                                        file.id,
+                                                                    )
+                                                                }
+                                                                className="opacity-0 group-hover:opacity-100 transition-opacity p-1 hover:bg-destructive/10 rounded-sm"
+                                                                aria-label="Remove file"
+                                                            >
+                                                                <Trash2 className="w-3 h-3 text-destructive" />
+                                                            </button>
+                                                        </div>
+                                                        <p
+                                                            className="font-mono text-xs text-foreground truncate mt-2"
+                                                            title={file.name}
+                                                        >
+                                                            {file.name}
+                                                        </p>
+                                                        <p className="font-mono text-xs text-muted-foreground mt-1">
+                                                            {formatFileSize(
+                                                                file.size,
+                                                            )}
+                                                        </p>
+                                                    </div>
+                                                ),
+                                            )}
+                                        </div>
+                                    ) : (
+                                        <div className="text-center py-8 border border-dashed border-border rounded-sm">
+                                            <Upload className="w-8 h-8 text-muted-foreground mx-auto mb-2" />
+                                            <p className="font-mono text-xs text-muted-foreground uppercase tracking-wider">
+                                                No files uploaded yet
                                             </p>
                                         </div>
-                                    ))}
-                                </div>
-                            ) : (
-                                <div className="text-center py-8 border border-dashed border-border rounded-sm">
-                                    <Upload className="w-8 h-8 text-muted-foreground mx-auto mb-2" />
-                                    <p className="font-mono text-xs text-muted-foreground uppercase tracking-wider">
-                                        No files uploaded yet
-                                    </p>
+                                    )}
                                 </div>
                             )}
                         </div>
@@ -1200,9 +1621,18 @@ export function ChatInterface() {
                                 <Button
                                     type="submit"
                                     size="sm"
-                                    disabled={!input.trim() || isLoading || loadingTeams || !currentTeam}
+                                    disabled={
+                                        !input.trim() ||
+                                        isLoading ||
+                                        loadingTeams ||
+                                        !currentTeam
+                                    }
                                     className="font-mono text-xs uppercase tracking-wider rounded-sm bg-primary hover:bg-primary/90 disabled:opacity-50"
-                                    title={!currentTeam ? "No team available" : undefined}
+                                    title={
+                                        !currentTeam
+                                            ? "No team available"
+                                            : undefined
+                                    }
                                 >
                                     <Send className="w-4 h-4" />
                                 </Button>
